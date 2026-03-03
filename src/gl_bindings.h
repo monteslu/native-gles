@@ -205,4 +205,124 @@ namespace gl {
     void _vertexAttrib3f(const Napi::CallbackInfo& info);
     void _vertexAttrib4f(const Napi::CallbackInfo& info);
     void _sampleCoverage(const Napi::CallbackInfo& info);
+
+    // 3D Textures
+    void _texImage3D(const Napi::CallbackInfo& info);
+    void _texSubImage3D(const Napi::CallbackInfo& info);
+    void _copyTexSubImage3D(const Napi::CallbackInfo& info);
+    void _compressedTexImage3D(const Napi::CallbackInfo& info);
+    void _compressedTexSubImage3D(const Napi::CallbackInfo& info);
+
+    // Texture Storage
+    void _texStorage2D(const Napi::CallbackInfo& info);
+    void _texStorage3D(const Napi::CallbackInfo& info);
+
+    // Uniform Buffer Objects
+    void _bindBufferRange(const Napi::CallbackInfo& info);
+    void _bindBufferBase(const Napi::CallbackInfo& info);
+    Napi::Value _getUniformBlockIndex(const Napi::CallbackInfo& info);
+    void _getActiveUniformBlockiv(const Napi::CallbackInfo& info);
+    Napi::Value _getActiveUniformBlockName(const Napi::CallbackInfo& info);
+    void _uniformBlockBinding(const Napi::CallbackInfo& info);
+    void _getUniformIndices(const Napi::CallbackInfo& info);
+    void _getActiveUniformsiv(const Napi::CallbackInfo& info);
+
+    // Unsigned int uniforms
+    void _uniform1ui(const Napi::CallbackInfo& info);
+    void _uniform2ui(const Napi::CallbackInfo& info);
+    void _uniform3ui(const Napi::CallbackInfo& info);
+    void _uniform4ui(const Napi::CallbackInfo& info);
+    void _uniform1uiv(const Napi::CallbackInfo& info);
+    void _uniform2uiv(const Napi::CallbackInfo& info);
+    void _uniform3uiv(const Napi::CallbackInfo& info);
+    void _uniform4uiv(const Napi::CallbackInfo& info);
+
+    // Read buffer / FBO layer
+    void _readBuffer(const Napi::CallbackInfo& info);
+    void _framebufferTextureLayer(const Napi::CallbackInfo& info);
+
+    // Non-square matrices
+    void _uniformMatrix2x3fv(const Napi::CallbackInfo& info);
+    void _uniformMatrix3x2fv(const Napi::CallbackInfo& info);
+    void _uniformMatrix2x4fv(const Napi::CallbackInfo& info);
+    void _uniformMatrix4x2fv(const Napi::CallbackInfo& info);
+    void _uniformMatrix3x4fv(const Napi::CallbackInfo& info);
+    void _uniformMatrix4x3fv(const Napi::CallbackInfo& info);
+
+    // Clear buffer
+    void _clearBufferiv(const Napi::CallbackInfo& info);
+    void _clearBufferuiv(const Napi::CallbackInfo& info);
+    void _clearBufferfv(const Napi::CallbackInfo& info);
+    void _clearBufferfi(const Napi::CallbackInfo& info);
+
+    // Transform feedback
+    void _beginTransformFeedback(const Napi::CallbackInfo& info);
+    void _endTransformFeedback(const Napi::CallbackInfo& info);
+    void _transformFeedbackVaryings(const Napi::CallbackInfo& info);
+    Napi::Value _getTransformFeedbackVarying(const Napi::CallbackInfo& info);
+    void _genTransformFeedbacks(const Napi::CallbackInfo& info);
+    void _deleteTransformFeedbacks(const Napi::CallbackInfo& info);
+    void _bindTransformFeedback(const Napi::CallbackInfo& info);
+    Napi::Value _isTransformFeedback(const Napi::CallbackInfo& info);
+    void _pauseTransformFeedback(const Napi::CallbackInfo& info);
+    void _resumeTransformFeedback(const Napi::CallbackInfo& info);
+
+    // Sync & queries (additional)
+    Napi::Value _isSync(const Napi::CallbackInfo& info);
+    void _waitSync(const Napi::CallbackInfo& info);
+    Napi::Value _getInteger64v(const Napi::CallbackInfo& info);
+    Napi::Value _getSynciv(const Napi::CallbackInfo& info);
+    Napi::Value _getIntegeri_v(const Napi::CallbackInfo& info);
+    Napi::Value _getInteger64i_v(const Napi::CallbackInfo& info);
+
+    // Misc GLES 3.0
+    Napi::Value _getFragDataLocation(const Napi::CallbackInfo& info);
+    Napi::Value _getShaderPrecisionFormat(const Napi::CallbackInfo& info);
+    void _drawRangeElements(const Napi::CallbackInfo& info);
+    void _getInternalformativ(const Napi::CallbackInfo& info);
+
+    // Framebuffer invalidation
+    void _invalidateFramebuffer(const Napi::CallbackInfo& info);
+    void _invalidateSubFramebuffer(const Napi::CallbackInfo& info);
+
+    // Integer vertex attribs
+    void _vertexAttribI4i(const Napi::CallbackInfo& info);
+    void _vertexAttribI4ui(const Napi::CallbackInfo& info);
+    void _vertexAttribI4iv(const Napi::CallbackInfo& info);
+    void _vertexAttribI4uiv(const Napi::CallbackInfo& info);
+    void _getVertexAttribIiv(const Napi::CallbackInfo& info);
+    void _getVertexAttribIuiv(const Napi::CallbackInfo& info);
+
+    // Sampler supplementary
+    Napi::Value _isSampler(const Napi::CallbackInfo& info);
+    void _samplerParameteriv(const Napi::CallbackInfo& info);
+    void _samplerParameterfv(const Napi::CallbackInfo& info);
+    void _getSamplerParameteriv(const Napi::CallbackInfo& info);
+    void _getSamplerParameterfv(const Napi::CallbackInfo& info);
+
+    // Vertex attrib fv variants
+    void _vertexAttrib1fv(const Napi::CallbackInfo& info);
+    void _vertexAttrib2fv(const Napi::CallbackInfo& info);
+    void _vertexAttrib3fv(const Napi::CallbackInfo& info);
+
+    // Query supplementary
+    Napi::Value _isQuery(const Napi::CallbackInfo& info);
+    Napi::Value _getQueryiv(const Napi::CallbackInfo& info);
+
+    // Misc
+    void _texParameterfv(const Napi::CallbackInfo& info);
+    void _copyTexImage2D(const Napi::CallbackInfo& info);
+    Napi::Value _isVertexArray(const Napi::CallbackInfo& info);
+    void _releaseShaderCompiler(const Napi::CallbackInfo& info);
+    void _programParameteri(const Napi::CallbackInfo& info);
+    void _getBufferParameteri64v(const Napi::CallbackInfo& info);
+    void _getUniformuiv(const Napi::CallbackInfo& info);
+    void _getAttachedShaders(const Napi::CallbackInfo& info);
+
+    // WASM-incompatible stubs
+    void _shaderBinary(const Napi::CallbackInfo& info);
+    void _getProgramBinary(const Napi::CallbackInfo& info);
+    void _programBinary(const Napi::CallbackInfo& info);
+    void _flushMappedBufferRange(const Napi::CallbackInfo& info);
+    void _getBufferPointerv(const Napi::CallbackInfo& info);
 }

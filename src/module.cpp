@@ -249,6 +249,126 @@ Napi::Object init(Napi::Env env, Napi::Object exports) {
     exports.Set("glVertexAttrib4f", Napi::Function::New<gl::_vertexAttrib4f>(env));
     exports.Set("glSampleCoverage", Napi::Function::New<gl::_sampleCoverage>(env));
 
+    // 3D Textures
+    exports.Set("glTexImage3D", Napi::Function::New<gl::_texImage3D>(env));
+    exports.Set("glTexSubImage3D", Napi::Function::New<gl::_texSubImage3D>(env));
+    exports.Set("glCopyTexSubImage3D", Napi::Function::New<gl::_copyTexSubImage3D>(env));
+    exports.Set("glCompressedTexImage3D", Napi::Function::New<gl::_compressedTexImage3D>(env));
+    exports.Set("glCompressedTexSubImage3D", Napi::Function::New<gl::_compressedTexSubImage3D>(env));
+
+    // Texture Storage
+    exports.Set("glTexStorage2D", Napi::Function::New<gl::_texStorage2D>(env));
+    exports.Set("glTexStorage3D", Napi::Function::New<gl::_texStorage3D>(env));
+
+    // Uniform Buffer Objects
+    exports.Set("glBindBufferRange", Napi::Function::New<gl::_bindBufferRange>(env));
+    exports.Set("glBindBufferBase", Napi::Function::New<gl::_bindBufferBase>(env));
+    exports.Set("glGetUniformBlockIndex", Napi::Function::New<gl::_getUniformBlockIndex>(env));
+    exports.Set("glGetActiveUniformBlockiv", Napi::Function::New<gl::_getActiveUniformBlockiv>(env));
+    exports.Set("glGetActiveUniformBlockName", Napi::Function::New<gl::_getActiveUniformBlockName>(env));
+    exports.Set("glUniformBlockBinding", Napi::Function::New<gl::_uniformBlockBinding>(env));
+    exports.Set("glGetUniformIndices", Napi::Function::New<gl::_getUniformIndices>(env));
+    exports.Set("glGetActiveUniformsiv", Napi::Function::New<gl::_getActiveUniformsiv>(env));
+
+    // Unsigned int uniforms
+    exports.Set("glUniform1ui", Napi::Function::New<gl::_uniform1ui>(env));
+    exports.Set("glUniform2ui", Napi::Function::New<gl::_uniform2ui>(env));
+    exports.Set("glUniform3ui", Napi::Function::New<gl::_uniform3ui>(env));
+    exports.Set("glUniform4ui", Napi::Function::New<gl::_uniform4ui>(env));
+    exports.Set("glUniform1uiv", Napi::Function::New<gl::_uniform1uiv>(env));
+    exports.Set("glUniform2uiv", Napi::Function::New<gl::_uniform2uiv>(env));
+    exports.Set("glUniform3uiv", Napi::Function::New<gl::_uniform3uiv>(env));
+    exports.Set("glUniform4uiv", Napi::Function::New<gl::_uniform4uiv>(env));
+
+    // Read buffer / FBO layer
+    exports.Set("glReadBuffer", Napi::Function::New<gl::_readBuffer>(env));
+    exports.Set("glFramebufferTextureLayer", Napi::Function::New<gl::_framebufferTextureLayer>(env));
+
+    // Non-square matrices
+    exports.Set("glUniformMatrix2x3fv", Napi::Function::New<gl::_uniformMatrix2x3fv>(env));
+    exports.Set("glUniformMatrix3x2fv", Napi::Function::New<gl::_uniformMatrix3x2fv>(env));
+    exports.Set("glUniformMatrix2x4fv", Napi::Function::New<gl::_uniformMatrix2x4fv>(env));
+    exports.Set("glUniformMatrix4x2fv", Napi::Function::New<gl::_uniformMatrix4x2fv>(env));
+    exports.Set("glUniformMatrix3x4fv", Napi::Function::New<gl::_uniformMatrix3x4fv>(env));
+    exports.Set("glUniformMatrix4x3fv", Napi::Function::New<gl::_uniformMatrix4x3fv>(env));
+
+    // Clear buffer
+    exports.Set("glClearBufferiv", Napi::Function::New<gl::_clearBufferiv>(env));
+    exports.Set("glClearBufferuiv", Napi::Function::New<gl::_clearBufferuiv>(env));
+    exports.Set("glClearBufferfv", Napi::Function::New<gl::_clearBufferfv>(env));
+    exports.Set("glClearBufferfi", Napi::Function::New<gl::_clearBufferfi>(env));
+
+    // Transform feedback
+    exports.Set("glBeginTransformFeedback", Napi::Function::New<gl::_beginTransformFeedback>(env));
+    exports.Set("glEndTransformFeedback", Napi::Function::New<gl::_endTransformFeedback>(env));
+    exports.Set("glTransformFeedbackVaryings", Napi::Function::New<gl::_transformFeedbackVaryings>(env));
+    exports.Set("glGetTransformFeedbackVarying", Napi::Function::New<gl::_getTransformFeedbackVarying>(env));
+    exports.Set("glGenTransformFeedbacks", Napi::Function::New<gl::_genTransformFeedbacks>(env));
+    exports.Set("glDeleteTransformFeedbacks", Napi::Function::New<gl::_deleteTransformFeedbacks>(env));
+    exports.Set("glBindTransformFeedback", Napi::Function::New<gl::_bindTransformFeedback>(env));
+    exports.Set("glIsTransformFeedback", Napi::Function::New<gl::_isTransformFeedback>(env));
+    exports.Set("glPauseTransformFeedback", Napi::Function::New<gl::_pauseTransformFeedback>(env));
+    exports.Set("glResumeTransformFeedback", Napi::Function::New<gl::_resumeTransformFeedback>(env));
+
+    // Sync & queries (additional)
+    exports.Set("glIsSync", Napi::Function::New<gl::_isSync>(env));
+    exports.Set("glWaitSync", Napi::Function::New<gl::_waitSync>(env));
+    exports.Set("glGetInteger64v", Napi::Function::New<gl::_getInteger64v>(env));
+    exports.Set("glGetSynciv", Napi::Function::New<gl::_getSynciv>(env));
+    exports.Set("glGetIntegeri_v", Napi::Function::New<gl::_getIntegeri_v>(env));
+    exports.Set("glGetInteger64i_v", Napi::Function::New<gl::_getInteger64i_v>(env));
+
+    // Misc GLES 3.0
+    exports.Set("glGetFragDataLocation", Napi::Function::New<gl::_getFragDataLocation>(env));
+    exports.Set("glGetShaderPrecisionFormat", Napi::Function::New<gl::_getShaderPrecisionFormat>(env));
+    exports.Set("glDrawRangeElements", Napi::Function::New<gl::_drawRangeElements>(env));
+    exports.Set("glGetInternalformativ", Napi::Function::New<gl::_getInternalformativ>(env));
+
+    // Framebuffer invalidation
+    exports.Set("glInvalidateFramebuffer", Napi::Function::New<gl::_invalidateFramebuffer>(env));
+    exports.Set("glInvalidateSubFramebuffer", Napi::Function::New<gl::_invalidateSubFramebuffer>(env));
+
+    // Integer vertex attribs
+    exports.Set("glVertexAttribI4i", Napi::Function::New<gl::_vertexAttribI4i>(env));
+    exports.Set("glVertexAttribI4ui", Napi::Function::New<gl::_vertexAttribI4ui>(env));
+    exports.Set("glVertexAttribI4iv", Napi::Function::New<gl::_vertexAttribI4iv>(env));
+    exports.Set("glVertexAttribI4uiv", Napi::Function::New<gl::_vertexAttribI4uiv>(env));
+    exports.Set("glGetVertexAttribIiv", Napi::Function::New<gl::_getVertexAttribIiv>(env));
+    exports.Set("glGetVertexAttribIuiv", Napi::Function::New<gl::_getVertexAttribIuiv>(env));
+
+    // Sampler supplementary
+    exports.Set("glIsSampler", Napi::Function::New<gl::_isSampler>(env));
+    exports.Set("glSamplerParameteriv", Napi::Function::New<gl::_samplerParameteriv>(env));
+    exports.Set("glSamplerParameterfv", Napi::Function::New<gl::_samplerParameterfv>(env));
+    exports.Set("glGetSamplerParameteriv", Napi::Function::New<gl::_getSamplerParameteriv>(env));
+    exports.Set("glGetSamplerParameterfv", Napi::Function::New<gl::_getSamplerParameterfv>(env));
+
+    // Vertex attrib fv variants
+    exports.Set("glVertexAttrib1fv", Napi::Function::New<gl::_vertexAttrib1fv>(env));
+    exports.Set("glVertexAttrib2fv", Napi::Function::New<gl::_vertexAttrib2fv>(env));
+    exports.Set("glVertexAttrib3fv", Napi::Function::New<gl::_vertexAttrib3fv>(env));
+
+    // Query supplementary
+    exports.Set("glIsQuery", Napi::Function::New<gl::_isQuery>(env));
+    exports.Set("glGetQueryiv", Napi::Function::New<gl::_getQueryiv>(env));
+
+    // Misc
+    exports.Set("glTexParameterfv", Napi::Function::New<gl::_texParameterfv>(env));
+    exports.Set("glCopyTexImage2D", Napi::Function::New<gl::_copyTexImage2D>(env));
+    exports.Set("glIsVertexArray", Napi::Function::New<gl::_isVertexArray>(env));
+    exports.Set("glReleaseShaderCompiler", Napi::Function::New<gl::_releaseShaderCompiler>(env));
+    exports.Set("glProgramParameteri", Napi::Function::New<gl::_programParameteri>(env));
+    exports.Set("glGetBufferParameteri64v", Napi::Function::New<gl::_getBufferParameteri64v>(env));
+    exports.Set("glGetUniformuiv", Napi::Function::New<gl::_getUniformuiv>(env));
+    exports.Set("glGetAttachedShaders", Napi::Function::New<gl::_getAttachedShaders>(env));
+
+    // WASM-incompatible stubs
+    exports.Set("glShaderBinary", Napi::Function::New<gl::_shaderBinary>(env));
+    exports.Set("glGetProgramBinary", Napi::Function::New<gl::_getProgramBinary>(env));
+    exports.Set("glProgramBinary", Napi::Function::New<gl::_programBinary>(env));
+    exports.Set("glFlushMappedBufferRange", Napi::Function::New<gl::_flushMappedBufferRange>(env));
+    exports.Set("glGetBufferPointerv", Napi::Function::New<gl::_getBufferPointerv>(env));
+
     return exports;
 }
 

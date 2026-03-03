@@ -17,8 +17,9 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+ssh://git@github.com/nicholasgasior/native-gles.git"
+    "url": "git+ssh://git@github.com/monteslu/native-gles.git"
   },
+  "author": "Luis Montes <monteslu>",
   "main": "./index.js",
   "gypfile": true,
   "scripts": {
@@ -39,7 +40,7 @@
   },
   "config": {
     "angle": {
-      "owner": "nicholasgasior",
+      "owner": "monteslu",
       "repo": "build-angle",
       "version": "0.1.0"
     }

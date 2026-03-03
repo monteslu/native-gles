@@ -1121,4 +1121,681 @@ void _sampleCoverage(const Napi::CallbackInfo& info) {
                      info[1].As<Napi::Boolean>().Value());
 }
 
+// ─── 3D Textures ────────────────────────────────────────────────────────
+
+void _texImage3D(const Napi::CallbackInfo& info) {
+    GLenum target = info[0].As<Napi::Number>().Uint32Value();
+    GLint level = info[1].As<Napi::Number>().Int32Value();
+    GLint internalformat = info[2].As<Napi::Number>().Int32Value();
+    GLsizei width = info[3].As<Napi::Number>().Int32Value();
+    GLsizei height = info[4].As<Napi::Number>().Int32Value();
+    GLsizei depth = info[5].As<Napi::Number>().Int32Value();
+    GLint border = info[6].As<Napi::Number>().Int32Value();
+    GLenum format = info[7].As<Napi::Number>().Uint32Value();
+    GLenum type = info[8].As<Napi::Number>().Uint32Value();
+    const void* data = nullptr;
+    if (info.Length() > 9 && info[9].IsTypedArray()) {
+        data = getArrayData(info, 9);
+    }
+    glTexImage3D(target, level, internalformat, width, height, depth, border, format, type, data);
+}
+
+void _texSubImage3D(const Napi::CallbackInfo& info) {
+    GLenum target = info[0].As<Napi::Number>().Uint32Value();
+    GLint level = info[1].As<Napi::Number>().Int32Value();
+    GLint xoffset = info[2].As<Napi::Number>().Int32Value();
+    GLint yoffset = info[3].As<Napi::Number>().Int32Value();
+    GLint zoffset = info[4].As<Napi::Number>().Int32Value();
+    GLsizei width = info[5].As<Napi::Number>().Int32Value();
+    GLsizei height = info[6].As<Napi::Number>().Int32Value();
+    GLsizei depth = info[7].As<Napi::Number>().Int32Value();
+    GLenum format = info[8].As<Napi::Number>().Uint32Value();
+    GLenum type = info[9].As<Napi::Number>().Uint32Value();
+    auto data = info[10].As<Napi::Uint8Array>();
+    glTexSubImage3D(target, level, xoffset, yoffset, zoffset, width, height, depth, format, type, data.Data());
+}
+
+void _copyTexSubImage3D(const Napi::CallbackInfo& info) {
+    glCopyTexSubImage3D(info[0].As<Napi::Number>().Uint32Value(),
+                        info[1].As<Napi::Number>().Int32Value(),
+                        info[2].As<Napi::Number>().Int32Value(),
+                        info[3].As<Napi::Number>().Int32Value(),
+                        info[4].As<Napi::Number>().Int32Value(),
+                        info[5].As<Napi::Number>().Int32Value(),
+                        info[6].As<Napi::Number>().Int32Value(),
+                        info[7].As<Napi::Number>().Int32Value(),
+                        info[8].As<Napi::Number>().Int32Value());
+}
+
+void _compressedTexImage3D(const Napi::CallbackInfo& info) {
+    GLenum target = info[0].As<Napi::Number>().Uint32Value();
+    GLint level = info[1].As<Napi::Number>().Int32Value();
+    GLenum internalformat = info[2].As<Napi::Number>().Uint32Value();
+    GLsizei width = info[3].As<Napi::Number>().Int32Value();
+    GLsizei height = info[4].As<Napi::Number>().Int32Value();
+    GLsizei depth = info[5].As<Napi::Number>().Int32Value();
+    GLint border = info[6].As<Napi::Number>().Int32Value();
+    auto data = info[7].As<Napi::Uint8Array>();
+    glCompressedTexImage3D(target, level, internalformat, width, height, depth, border,
+                            data.ByteLength(), data.Data());
+}
+
+void _compressedTexSubImage3D(const Napi::CallbackInfo& info) {
+    GLenum target = info[0].As<Napi::Number>().Uint32Value();
+    GLint level = info[1].As<Napi::Number>().Int32Value();
+    GLint xoffset = info[2].As<Napi::Number>().Int32Value();
+    GLint yoffset = info[3].As<Napi::Number>().Int32Value();
+    GLint zoffset = info[4].As<Napi::Number>().Int32Value();
+    GLsizei width = info[5].As<Napi::Number>().Int32Value();
+    GLsizei height = info[6].As<Napi::Number>().Int32Value();
+    GLsizei depth = info[7].As<Napi::Number>().Int32Value();
+    GLenum format = info[8].As<Napi::Number>().Uint32Value();
+    auto data = info[9].As<Napi::Uint8Array>();
+    glCompressedTexSubImage3D(target, level, xoffset, yoffset, zoffset, width, height, depth,
+                               format, data.ByteLength(), data.Data());
+}
+
+// ─── Texture Storage ────────────────────────────────────────────────────
+
+void _texStorage2D(const Napi::CallbackInfo& info) {
+    glTexStorage2D(info[0].As<Napi::Number>().Uint32Value(),
+                   info[1].As<Napi::Number>().Int32Value(),
+                   info[2].As<Napi::Number>().Uint32Value(),
+                   info[3].As<Napi::Number>().Int32Value(),
+                   info[4].As<Napi::Number>().Int32Value());
+}
+
+void _texStorage3D(const Napi::CallbackInfo& info) {
+    glTexStorage3D(info[0].As<Napi::Number>().Uint32Value(),
+                   info[1].As<Napi::Number>().Int32Value(),
+                   info[2].As<Napi::Number>().Uint32Value(),
+                   info[3].As<Napi::Number>().Int32Value(),
+                   info[4].As<Napi::Number>().Int32Value(),
+                   info[5].As<Napi::Number>().Int32Value());
+}
+
+// ─── Uniform Buffer Objects ─────────────────────────────────────────────
+
+void _bindBufferRange(const Napi::CallbackInfo& info) {
+    GLenum target = info[0].As<Napi::Number>().Uint32Value();
+    GLuint index = info[1].As<Napi::Number>().Uint32Value();
+    GLuint buffer = info[2].As<Napi::Number>().Uint32Value();
+    intptr_t offset = info[3].As<Napi::Number>().Int64Value();
+    intptr_t size = info[4].As<Napi::Number>().Int64Value();
+    glBindBufferRange(target, index, buffer, offset, size);
+}
+
+void _bindBufferBase(const Napi::CallbackInfo& info) {
+    glBindBufferBase(info[0].As<Napi::Number>().Uint32Value(),
+                     info[1].As<Napi::Number>().Uint32Value(),
+                     info[2].As<Napi::Number>().Uint32Value());
+}
+
+Napi::Value _getUniformBlockIndex(const Napi::CallbackInfo& info) {
+    GLuint program = info[0].As<Napi::Number>().Uint32Value();
+    std::string name = info[1].As<Napi::String>().Utf8Value();
+    GLuint index = glGetUniformBlockIndex(program, name.c_str());
+    return Napi::Number::New(info.Env(), index);
+}
+
+void _getActiveUniformBlockiv(const Napi::CallbackInfo& info) {
+    GLuint program = info[0].As<Napi::Number>().Uint32Value();
+    GLuint blockIndex = info[1].As<Napi::Number>().Uint32Value();
+    GLenum pname = info[2].As<Napi::Number>().Uint32Value();
+    auto arr = info[3].As<Napi::Int32Array>();
+    glGetActiveUniformBlockiv(program, blockIndex, pname, arr.Data());
+}
+
+Napi::Value _getActiveUniformBlockName(const Napi::CallbackInfo& info) {
+    GLuint program = info[0].As<Napi::Number>().Uint32Value();
+    GLuint blockIndex = info[1].As<Napi::Number>().Uint32Value();
+    char name[256];
+    GLsizei length = 0;
+    glGetActiveUniformBlockName(program, blockIndex, sizeof(name), &length, name);
+    return Napi::String::New(info.Env(), name, length);
+}
+
+void _uniformBlockBinding(const Napi::CallbackInfo& info) {
+    glUniformBlockBinding(info[0].As<Napi::Number>().Uint32Value(),
+                          info[1].As<Napi::Number>().Uint32Value(),
+                          info[2].As<Napi::Number>().Uint32Value());
+}
+
+void _getUniformIndices(const Napi::CallbackInfo& info) {
+    GLuint program = info[0].As<Napi::Number>().Uint32Value();
+    auto namesArr = info[1].As<Napi::Array>();
+    auto indicesArr = info[2].As<Napi::Uint32Array>();
+    GLsizei count = namesArr.Length();
+    std::vector<std::string> nameStrs(count);
+    std::vector<const GLchar*> namePtrs(count);
+    for (GLsizei i = 0; i < count; i++) {
+        nameStrs[i] = namesArr.Get(i).As<Napi::String>().Utf8Value();
+        namePtrs[i] = nameStrs[i].c_str();
+    }
+    glGetUniformIndices(program, count, namePtrs.data(), reinterpret_cast<GLuint*>(indicesArr.Data()));
+}
+
+void _getActiveUniformsiv(const Napi::CallbackInfo& info) {
+    GLuint program = info[0].As<Napi::Number>().Uint32Value();
+    auto indicesArr = info[1].As<Napi::Uint32Array>();
+    GLenum pname = info[2].As<Napi::Number>().Uint32Value();
+    auto paramsArr = info[3].As<Napi::Int32Array>();
+    GLsizei count = indicesArr.ElementLength();
+    glGetActiveUniformsiv(program, count, reinterpret_cast<const GLuint*>(indicesArr.Data()), pname, paramsArr.Data());
+}
+
+// ─── Unsigned Int Uniforms ──────────────────────────────────────────────
+
+void _uniform1ui(const Napi::CallbackInfo& info) {
+    glUniform1ui(info[0].As<Napi::Number>().Int32Value(),
+                 info[1].As<Napi::Number>().Uint32Value());
+}
+
+void _uniform2ui(const Napi::CallbackInfo& info) {
+    glUniform2ui(info[0].As<Napi::Number>().Int32Value(),
+                 info[1].As<Napi::Number>().Uint32Value(),
+                 info[2].As<Napi::Number>().Uint32Value());
+}
+
+void _uniform3ui(const Napi::CallbackInfo& info) {
+    glUniform3ui(info[0].As<Napi::Number>().Int32Value(),
+                 info[1].As<Napi::Number>().Uint32Value(),
+                 info[2].As<Napi::Number>().Uint32Value(),
+                 info[3].As<Napi::Number>().Uint32Value());
+}
+
+void _uniform4ui(const Napi::CallbackInfo& info) {
+    glUniform4ui(info[0].As<Napi::Number>().Int32Value(),
+                 info[1].As<Napi::Number>().Uint32Value(),
+                 info[2].As<Napi::Number>().Uint32Value(),
+                 info[3].As<Napi::Number>().Uint32Value(),
+                 info[4].As<Napi::Number>().Uint32Value());
+}
+
+void _uniform1uiv(const Napi::CallbackInfo& info) {
+    GLint loc = info[0].As<Napi::Number>().Int32Value();
+    auto arr = info[1].As<Napi::Uint32Array>();
+    glUniform1uiv(loc, arr.ElementLength(), arr.Data());
+}
+
+void _uniform2uiv(const Napi::CallbackInfo& info) {
+    GLint loc = info[0].As<Napi::Number>().Int32Value();
+    auto arr = info[1].As<Napi::Uint32Array>();
+    glUniform2uiv(loc, arr.ElementLength() / 2, arr.Data());
+}
+
+void _uniform3uiv(const Napi::CallbackInfo& info) {
+    GLint loc = info[0].As<Napi::Number>().Int32Value();
+    auto arr = info[1].As<Napi::Uint32Array>();
+    glUniform3uiv(loc, arr.ElementLength() / 3, arr.Data());
+}
+
+void _uniform4uiv(const Napi::CallbackInfo& info) {
+    GLint loc = info[0].As<Napi::Number>().Int32Value();
+    auto arr = info[1].As<Napi::Uint32Array>();
+    glUniform4uiv(loc, arr.ElementLength() / 4, arr.Data());
+}
+
+// ─── Read Buffer / FBO Layer ────────────────────────────────────────────
+
+void _readBuffer(const Napi::CallbackInfo& info) {
+    glReadBuffer(info[0].As<Napi::Number>().Uint32Value());
+}
+
+void _framebufferTextureLayer(const Napi::CallbackInfo& info) {
+    glFramebufferTextureLayer(info[0].As<Napi::Number>().Uint32Value(),
+                               info[1].As<Napi::Number>().Uint32Value(),
+                               info[2].As<Napi::Number>().Uint32Value(),
+                               info[3].As<Napi::Number>().Int32Value(),
+                               info[4].As<Napi::Number>().Int32Value());
+}
+
+// ─── Non-Square Matrices ────────────────────────────────────────────────
+
+void _uniformMatrix2x3fv(const Napi::CallbackInfo& info) {
+    GLint loc = info[0].As<Napi::Number>().Int32Value();
+    GLboolean transpose = info[1].As<Napi::Boolean>().Value();
+    auto arr = info[2].As<Napi::Float32Array>();
+    glUniformMatrix2x3fv(loc, arr.ElementLength() / 6, transpose, arr.Data());
+}
+
+void _uniformMatrix3x2fv(const Napi::CallbackInfo& info) {
+    GLint loc = info[0].As<Napi::Number>().Int32Value();
+    GLboolean transpose = info[1].As<Napi::Boolean>().Value();
+    auto arr = info[2].As<Napi::Float32Array>();
+    glUniformMatrix3x2fv(loc, arr.ElementLength() / 6, transpose, arr.Data());
+}
+
+void _uniformMatrix2x4fv(const Napi::CallbackInfo& info) {
+    GLint loc = info[0].As<Napi::Number>().Int32Value();
+    GLboolean transpose = info[1].As<Napi::Boolean>().Value();
+    auto arr = info[2].As<Napi::Float32Array>();
+    glUniformMatrix2x4fv(loc, arr.ElementLength() / 8, transpose, arr.Data());
+}
+
+void _uniformMatrix4x2fv(const Napi::CallbackInfo& info) {
+    GLint loc = info[0].As<Napi::Number>().Int32Value();
+    GLboolean transpose = info[1].As<Napi::Boolean>().Value();
+    auto arr = info[2].As<Napi::Float32Array>();
+    glUniformMatrix4x2fv(loc, arr.ElementLength() / 8, transpose, arr.Data());
+}
+
+void _uniformMatrix3x4fv(const Napi::CallbackInfo& info) {
+    GLint loc = info[0].As<Napi::Number>().Int32Value();
+    GLboolean transpose = info[1].As<Napi::Boolean>().Value();
+    auto arr = info[2].As<Napi::Float32Array>();
+    glUniformMatrix3x4fv(loc, arr.ElementLength() / 12, transpose, arr.Data());
+}
+
+void _uniformMatrix4x3fv(const Napi::CallbackInfo& info) {
+    GLint loc = info[0].As<Napi::Number>().Int32Value();
+    GLboolean transpose = info[1].As<Napi::Boolean>().Value();
+    auto arr = info[2].As<Napi::Float32Array>();
+    glUniformMatrix4x3fv(loc, arr.ElementLength() / 12, transpose, arr.Data());
+}
+
+// ─── Clear Buffer ───────────────────────────────────────────────────────
+
+void _clearBufferiv(const Napi::CallbackInfo& info) {
+    GLenum buffer = info[0].As<Napi::Number>().Uint32Value();
+    GLint drawbuffer = info[1].As<Napi::Number>().Int32Value();
+    auto arr = info[2].As<Napi::Int32Array>();
+    glClearBufferiv(buffer, drawbuffer, arr.Data());
+}
+
+void _clearBufferuiv(const Napi::CallbackInfo& info) {
+    GLenum buffer = info[0].As<Napi::Number>().Uint32Value();
+    GLint drawbuffer = info[1].As<Napi::Number>().Int32Value();
+    auto arr = info[2].As<Napi::Uint32Array>();
+    glClearBufferuiv(buffer, drawbuffer, arr.Data());
+}
+
+void _clearBufferfv(const Napi::CallbackInfo& info) {
+    GLenum buffer = info[0].As<Napi::Number>().Uint32Value();
+    GLint drawbuffer = info[1].As<Napi::Number>().Int32Value();
+    auto arr = info[2].As<Napi::Float32Array>();
+    glClearBufferfv(buffer, drawbuffer, arr.Data());
+}
+
+void _clearBufferfi(const Napi::CallbackInfo& info) {
+    glClearBufferfi(info[0].As<Napi::Number>().Uint32Value(),
+                    info[1].As<Napi::Number>().Int32Value(),
+                    info[2].As<Napi::Number>().FloatValue(),
+                    info[3].As<Napi::Number>().Int32Value());
+}
+
+// ─── Transform Feedback ─────────────────────────────────────────────────
+
+void _beginTransformFeedback(const Napi::CallbackInfo& info) {
+    glBeginTransformFeedback(info[0].As<Napi::Number>().Uint32Value());
+}
+
+void _endTransformFeedback(const Napi::CallbackInfo& info) {
+    (void)info;
+    glEndTransformFeedback();
+}
+
+void _transformFeedbackVaryings(const Napi::CallbackInfo& info) {
+    GLuint program = info[0].As<Napi::Number>().Uint32Value();
+    auto namesArr = info[1].As<Napi::Array>();
+    GLenum bufferMode = info[2].As<Napi::Number>().Uint32Value();
+    GLsizei count = namesArr.Length();
+    std::vector<std::string> nameStrs(count);
+    std::vector<const GLchar*> namePtrs(count);
+    for (GLsizei i = 0; i < count; i++) {
+        nameStrs[i] = namesArr.Get(i).As<Napi::String>().Utf8Value();
+        namePtrs[i] = nameStrs[i].c_str();
+    }
+    glTransformFeedbackVaryings(program, count, namePtrs.data(), bufferMode);
+}
+
+Napi::Value _getTransformFeedbackVarying(const Napi::CallbackInfo& info) {
+    GLuint program = info[0].As<Napi::Number>().Uint32Value();
+    GLuint index = info[1].As<Napi::Number>().Uint32Value();
+    char name[256];
+    GLsizei length = 0;
+    GLsizei size = 0;
+    GLenum type = 0;
+    glGetTransformFeedbackVarying(program, index, sizeof(name), &length, &size, &type, name);
+    auto env = info.Env();
+    auto obj = Napi::Object::New(env);
+    obj.Set("name", Napi::String::New(env, name, length));
+    obj.Set("size", Napi::Number::New(env, size));
+    obj.Set("type", Napi::Number::New(env, type));
+    return obj;
+}
+
+void _genTransformFeedbacks(const Napi::CallbackInfo& info) {
+    GLsizei n = info[0].As<Napi::Number>().Int32Value();
+    auto arr = info[1].As<Napi::Uint32Array>();
+    glGenTransformFeedbacks(n, reinterpret_cast<GLuint*>(arr.Data()));
+}
+
+void _deleteTransformFeedbacks(const Napi::CallbackInfo& info) {
+    GLsizei n = info[0].As<Napi::Number>().Int32Value();
+    auto arr = info[1].As<Napi::Uint32Array>();
+    glDeleteTransformFeedbacks(n, reinterpret_cast<const GLuint*>(arr.Data()));
+}
+
+void _bindTransformFeedback(const Napi::CallbackInfo& info) {
+    glBindTransformFeedback(info[0].As<Napi::Number>().Uint32Value(),
+                            info[1].As<Napi::Number>().Uint32Value());
+}
+
+Napi::Value _isTransformFeedback(const Napi::CallbackInfo& info) {
+    return Napi::Number::New(info.Env(), glIsTransformFeedback(info[0].As<Napi::Number>().Uint32Value()));
+}
+
+void _pauseTransformFeedback(const Napi::CallbackInfo& info) {
+    (void)info;
+    glPauseTransformFeedback();
+}
+
+void _resumeTransformFeedback(const Napi::CallbackInfo& info) {
+    (void)info;
+    glResumeTransformFeedback();
+}
+
+// ─── Sync & Queries (additional) ────────────────────────────────────────
+
+Napi::Value _isSync(const Napi::CallbackInfo& info) {
+    GLsync sync = reinterpret_cast<GLsync>(static_cast<intptr_t>(info[0].As<Napi::Number>().Int64Value()));
+    return Napi::Boolean::New(info.Env(), glIsSync(sync) == GL_TRUE);
+}
+
+void _waitSync(const Napi::CallbackInfo& info) {
+    GLsync sync = reinterpret_cast<GLsync>(static_cast<intptr_t>(info[0].As<Napi::Number>().Int64Value()));
+    GLbitfield flags = info[1].As<Napi::Number>().Uint32Value();
+    GLuint64 timeout = static_cast<GLuint64>(info[2].As<Napi::Number>().Int64Value());
+    glWaitSync(sync, flags, timeout);
+}
+
+Napi::Value _getInteger64v(const Napi::CallbackInfo& info) {
+    GLenum pname = info[0].As<Napi::Number>().Uint32Value();
+    GLint64 value = 0;
+    glGetInteger64v(pname, &value);
+    return Napi::Number::New(info.Env(), static_cast<double>(value));
+}
+
+Napi::Value _getSynciv(const Napi::CallbackInfo& info) {
+    GLsync sync = reinterpret_cast<GLsync>(static_cast<intptr_t>(info[0].As<Napi::Number>().Int64Value()));
+    GLenum pname = info[1].As<Napi::Number>().Uint32Value();
+    GLint value = 0;
+    GLsizei length = 0;
+    glGetSynciv(sync, pname, 1, &length, &value);
+    return Napi::Number::New(info.Env(), value);
+}
+
+Napi::Value _getIntegeri_v(const Napi::CallbackInfo& info) {
+    GLenum target = info[0].As<Napi::Number>().Uint32Value();
+    GLuint index = info[1].As<Napi::Number>().Uint32Value();
+    GLint value = 0;
+    glGetIntegeri_v(target, index, &value);
+    return Napi::Number::New(info.Env(), value);
+}
+
+Napi::Value _getInteger64i_v(const Napi::CallbackInfo& info) {
+    GLenum target = info[0].As<Napi::Number>().Uint32Value();
+    GLuint index = info[1].As<Napi::Number>().Uint32Value();
+    GLint64 value = 0;
+    glGetInteger64i_v(target, index, &value);
+    return Napi::Number::New(info.Env(), static_cast<double>(value));
+}
+
+// ─── Misc GLES 3.0 ─────────────────────────────────────────────────────
+
+Napi::Value _getFragDataLocation(const Napi::CallbackInfo& info) {
+    GLuint program = info[0].As<Napi::Number>().Uint32Value();
+    std::string name = info[1].As<Napi::String>().Utf8Value();
+    return Napi::Number::New(info.Env(), glGetFragDataLocation(program, name.c_str()));
+}
+
+Napi::Value _getShaderPrecisionFormat(const Napi::CallbackInfo& info) {
+    GLenum shadertype = info[0].As<Napi::Number>().Uint32Value();
+    GLenum precisiontype = info[1].As<Napi::Number>().Uint32Value();
+    GLint range[2] = {0, 0};
+    GLint precision = 0;
+    glGetShaderPrecisionFormat(shadertype, precisiontype, range, &precision);
+    auto env = info.Env();
+    auto obj = Napi::Object::New(env);
+    obj.Set("rangeMin", Napi::Number::New(env, range[0]));
+    obj.Set("rangeMax", Napi::Number::New(env, range[1]));
+    obj.Set("precision", Napi::Number::New(env, precision));
+    return obj;
+}
+
+void _drawRangeElements(const Napi::CallbackInfo& info) {
+    GLenum mode = info[0].As<Napi::Number>().Uint32Value();
+    GLuint start = info[1].As<Napi::Number>().Uint32Value();
+    GLuint end = info[2].As<Napi::Number>().Uint32Value();
+    GLsizei count = info[3].As<Napi::Number>().Int32Value();
+    GLenum type = info[4].As<Napi::Number>().Uint32Value();
+    intptr_t offset = info[5].As<Napi::Number>().Int64Value();
+    glDrawRangeElements(mode, start, end, count, type, reinterpret_cast<const void*>(offset));
+}
+
+void _getInternalformativ(const Napi::CallbackInfo& info) {
+    GLenum target = info[0].As<Napi::Number>().Uint32Value();
+    GLenum internalformat = info[1].As<Napi::Number>().Uint32Value();
+    GLenum pname = info[2].As<Napi::Number>().Uint32Value();
+    auto arr = info[3].As<Napi::Int32Array>();
+    glGetInternalformativ(target, internalformat, pname, arr.ElementLength(), arr.Data());
+}
+
+// ─── Framebuffer Invalidation ───────────────────────────────────────────
+
+void _invalidateFramebuffer(const Napi::CallbackInfo& info) {
+    GLenum target = info[0].As<Napi::Number>().Uint32Value();
+    auto arr = info[1].As<Napi::Uint32Array>();
+    glInvalidateFramebuffer(target, arr.ElementLength(), reinterpret_cast<const GLenum*>(arr.Data()));
+}
+
+void _invalidateSubFramebuffer(const Napi::CallbackInfo& info) {
+    GLenum target = info[0].As<Napi::Number>().Uint32Value();
+    auto arr = info[1].As<Napi::Uint32Array>();
+    GLint x = info[2].As<Napi::Number>().Int32Value();
+    GLint y = info[3].As<Napi::Number>().Int32Value();
+    GLsizei width = info[4].As<Napi::Number>().Int32Value();
+    GLsizei height = info[5].As<Napi::Number>().Int32Value();
+    glInvalidateSubFramebuffer(target, arr.ElementLength(), reinterpret_cast<const GLenum*>(arr.Data()), x, y, width, height);
+}
+
+// ─── Integer Vertex Attribs ─────────────────────────────────────────────
+
+void _vertexAttribI4i(const Napi::CallbackInfo& info) {
+    glVertexAttribI4i(info[0].As<Napi::Number>().Uint32Value(),
+                      info[1].As<Napi::Number>().Int32Value(),
+                      info[2].As<Napi::Number>().Int32Value(),
+                      info[3].As<Napi::Number>().Int32Value(),
+                      info[4].As<Napi::Number>().Int32Value());
+}
+
+void _vertexAttribI4ui(const Napi::CallbackInfo& info) {
+    glVertexAttribI4ui(info[0].As<Napi::Number>().Uint32Value(),
+                       info[1].As<Napi::Number>().Uint32Value(),
+                       info[2].As<Napi::Number>().Uint32Value(),
+                       info[3].As<Napi::Number>().Uint32Value(),
+                       info[4].As<Napi::Number>().Uint32Value());
+}
+
+void _vertexAttribI4iv(const Napi::CallbackInfo& info) {
+    GLuint index = info[0].As<Napi::Number>().Uint32Value();
+    auto arr = info[1].As<Napi::Int32Array>();
+    glVertexAttribI4iv(index, arr.Data());
+}
+
+void _vertexAttribI4uiv(const Napi::CallbackInfo& info) {
+    GLuint index = info[0].As<Napi::Number>().Uint32Value();
+    auto arr = info[1].As<Napi::Uint32Array>();
+    glVertexAttribI4uiv(index, arr.Data());
+}
+
+void _getVertexAttribIiv(const Napi::CallbackInfo& info) {
+    GLuint index = info[0].As<Napi::Number>().Uint32Value();
+    GLenum pname = info[1].As<Napi::Number>().Uint32Value();
+    auto arr = info[2].As<Napi::Int32Array>();
+    glGetVertexAttribIiv(index, pname, arr.Data());
+}
+
+void _getVertexAttribIuiv(const Napi::CallbackInfo& info) {
+    GLuint index = info[0].As<Napi::Number>().Uint32Value();
+    GLenum pname = info[1].As<Napi::Number>().Uint32Value();
+    auto arr = info[2].As<Napi::Uint32Array>();
+    glGetVertexAttribIuiv(index, pname, arr.Data());
+}
+
+// ─── Sampler Supplementary ──────────────────────────────────────────────
+
+Napi::Value _isSampler(const Napi::CallbackInfo& info) {
+    return Napi::Number::New(info.Env(), glIsSampler(info[0].As<Napi::Number>().Uint32Value()));
+}
+
+void _samplerParameteriv(const Napi::CallbackInfo& info) {
+    GLuint sampler = info[0].As<Napi::Number>().Uint32Value();
+    GLenum pname = info[1].As<Napi::Number>().Uint32Value();
+    auto arr = info[2].As<Napi::Int32Array>();
+    glSamplerParameteriv(sampler, pname, arr.Data());
+}
+
+void _samplerParameterfv(const Napi::CallbackInfo& info) {
+    GLuint sampler = info[0].As<Napi::Number>().Uint32Value();
+    GLenum pname = info[1].As<Napi::Number>().Uint32Value();
+    auto arr = info[2].As<Napi::Float32Array>();
+    glSamplerParameterfv(sampler, pname, arr.Data());
+}
+
+void _getSamplerParameteriv(const Napi::CallbackInfo& info) {
+    GLuint sampler = info[0].As<Napi::Number>().Uint32Value();
+    GLenum pname = info[1].As<Napi::Number>().Uint32Value();
+    auto arr = info[2].As<Napi::Int32Array>();
+    glGetSamplerParameteriv(sampler, pname, arr.Data());
+}
+
+void _getSamplerParameterfv(const Napi::CallbackInfo& info) {
+    GLuint sampler = info[0].As<Napi::Number>().Uint32Value();
+    GLenum pname = info[1].As<Napi::Number>().Uint32Value();
+    auto arr = info[2].As<Napi::Float32Array>();
+    glGetSamplerParameterfv(sampler, pname, arr.Data());
+}
+
+// ─── Vertex Attrib fv Variants ──────────────────────────────────────────
+
+void _vertexAttrib1fv(const Napi::CallbackInfo& info) {
+    GLuint index = info[0].As<Napi::Number>().Uint32Value();
+    auto arr = info[1].As<Napi::Float32Array>();
+    glVertexAttrib1fv(index, arr.Data());
+}
+
+void _vertexAttrib2fv(const Napi::CallbackInfo& info) {
+    GLuint index = info[0].As<Napi::Number>().Uint32Value();
+    auto arr = info[1].As<Napi::Float32Array>();
+    glVertexAttrib2fv(index, arr.Data());
+}
+
+void _vertexAttrib3fv(const Napi::CallbackInfo& info) {
+    GLuint index = info[0].As<Napi::Number>().Uint32Value();
+    auto arr = info[1].As<Napi::Float32Array>();
+    glVertexAttrib3fv(index, arr.Data());
+}
+
+// ─── Query Supplementary ────────────────────────────────────────────────
+
+Napi::Value _isQuery(const Napi::CallbackInfo& info) {
+    return Napi::Number::New(info.Env(), glIsQuery(info[0].As<Napi::Number>().Uint32Value()));
+}
+
+Napi::Value _getQueryiv(const Napi::CallbackInfo& info) {
+    GLenum target = info[0].As<Napi::Number>().Uint32Value();
+    GLenum pname = info[1].As<Napi::Number>().Uint32Value();
+    GLint value = 0;
+    glGetQueryiv(target, pname, &value);
+    return Napi::Number::New(info.Env(), value);
+}
+
+// ─── Misc ───────────────────────────────────────────────────────────────
+
+void _texParameterfv(const Napi::CallbackInfo& info) {
+    GLenum target = info[0].As<Napi::Number>().Uint32Value();
+    GLenum pname = info[1].As<Napi::Number>().Uint32Value();
+    auto arr = info[2].As<Napi::Float32Array>();
+    glTexParameterfv(target, pname, arr.Data());
+}
+
+void _copyTexImage2D(const Napi::CallbackInfo& info) {
+    glCopyTexImage2D(info[0].As<Napi::Number>().Uint32Value(),
+                     info[1].As<Napi::Number>().Int32Value(),
+                     info[2].As<Napi::Number>().Uint32Value(),
+                     info[3].As<Napi::Number>().Int32Value(),
+                     info[4].As<Napi::Number>().Int32Value(),
+                     info[5].As<Napi::Number>().Int32Value(),
+                     info[6].As<Napi::Number>().Int32Value(),
+                     info[7].As<Napi::Number>().Int32Value());
+}
+
+Napi::Value _isVertexArray(const Napi::CallbackInfo& info) {
+    return Napi::Number::New(info.Env(), glIsVertexArray(info[0].As<Napi::Number>().Uint32Value()));
+}
+
+void _releaseShaderCompiler(const Napi::CallbackInfo& info) {
+    (void)info;
+    glReleaseShaderCompiler();
+}
+
+void _programParameteri(const Napi::CallbackInfo& info) {
+    glProgramParameteri(info[0].As<Napi::Number>().Uint32Value(),
+                        info[1].As<Napi::Number>().Uint32Value(),
+                        info[2].As<Napi::Number>().Int32Value());
+}
+
+void _getBufferParameteri64v(const Napi::CallbackInfo& info) {
+    GLenum target = info[0].As<Napi::Number>().Uint32Value();
+    GLenum pname = info[1].As<Napi::Number>().Uint32Value();
+    GLint64 value = 0;
+    glGetBufferParameteri64v(target, pname, &value);
+    auto buf = info[2].As<Napi::Buffer<uint8_t>>();
+    memcpy(buf.Data(), &value, sizeof(GLint64));
+}
+
+void _getUniformuiv(const Napi::CallbackInfo& info) {
+    GLuint program = info[0].As<Napi::Number>().Uint32Value();
+    GLint location = info[1].As<Napi::Number>().Int32Value();
+    auto arr = info[2].As<Napi::Uint32Array>();
+    glGetUniformuiv(program, location, arr.Data());
+}
+
+void _getAttachedShaders(const Napi::CallbackInfo& info) {
+    GLuint program = info[0].As<Napi::Number>().Uint32Value();
+    auto arr = info[1].As<Napi::Uint32Array>();
+    GLsizei maxCount = arr.ElementLength();
+    GLsizei count = 0;
+    glGetAttachedShaders(program, maxCount, &count, reinterpret_cast<GLuint*>(arr.Data()));
+}
+
+// ─── WASM-Incompatible Stubs ────────────────────────────────────────────
+
+void _shaderBinary(const Napi::CallbackInfo& info) {
+    (void)info;
+    // No-op: shader binaries are driver-specific and not portable to WASM
+}
+
+void _getProgramBinary(const Napi::CallbackInfo& info) {
+    (void)info;
+    // No-op: program binaries are driver-specific and not portable to WASM
+}
+
+void _programBinary(const Napi::CallbackInfo& info) {
+    (void)info;
+    // No-op: program binaries are driver-specific and not portable to WASM
+}
+
+void _flushMappedBufferRange(const Napi::CallbackInfo& info) {
+    (void)info;
+    // No-op: mapped buffers return host pointers which can't cross WASM boundary
+}
+
+void _getBufferPointerv(const Napi::CallbackInfo& info) {
+    (void)info;
+    // No-op: buffer pointers are host addresses, meaningless in WASM
+}
+
 } // namespace gl
