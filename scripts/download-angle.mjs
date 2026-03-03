@@ -51,6 +51,19 @@ if (platform === 'darwin') {
 
 	await Fs.promises.rm(tmpDir, { recursive: true })
 
+	// Fix install names to use @rpath so linker records correct paths in gles.node
+	for (const f of ['libEGL.dylib', 'libGLESv2.dylib']) {
+		const libPath = Path.join(angleDir, 'lib', f)
+		if (Fs.existsSync(libPath)) {
+			execSync(`install_name_tool -id @rpath/${f} "${libPath}"`)
+		}
+	}
+	// Fix cross-reference: libGLESv2 may reference libEGL
+	const glesv2 = Path.join(angleDir, 'lib', 'libGLESv2.dylib')
+	if (Fs.existsSync(glesv2)) {
+		execSync(`install_name_tool -change ./libEGL.dylib @rpath/libEGL.dylib "${glesv2}"`)
+	}
+
 } else if (platform === 'win32') {
 	// Windows: mmozeiko/build-angle — zip with angle-{arch}/ subdirectory
 	const tag = C.angle.mmozeiko_tag
