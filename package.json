@@ -40,9 +40,8 @@
   },
   "config": {
     "angle": {
-      "owner": "monteslu",
-      "repo": "build-angle",
-      "version": "0.1.0"
+      "kivy_tag": "chromium-7151_rev1",
+      "mmozeiko_tag": "2026-03-01"
     }
   }
 }

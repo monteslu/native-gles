@@ -40,8 +40,8 @@ jobs:
       - name: Install npm deps
         run: npm install --ignore-scripts
 
-      - name: Download ANGLE (macOS only)
-        if: matrix.platform == 'darwin'
+      - name: Download ANGLE
+        if: matrix.platform != 'linux'
         run: npm run download-angle
 
       - name: Build from source

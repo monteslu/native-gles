@@ -26,7 +26,6 @@ const targetArch = process.env.CROSS_COMPILE_ARCH || arch
 const assetName = `gles.node-v${version}-${platform}-${targetArch}.tar.gz`
 
 const angle = pkg.config.angle
-angle.assetName = `ANGLE-v${angle.version}-${platform}-${targetArch}.tar.gz`
 
 module.exports = {
 	dir,
