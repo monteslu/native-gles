@@ -1,0 +1,81 @@
+name: Build and Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-22.04
+            arch: x64
+            platform: linux
+          - os: ubuntu-22.04-arm
+            arch: arm64
+            platform: linux
+          - os: macos-15
+            arch: arm64
+            platform: darwin
+          - os: macos-13
+            arch: x64
+            platform: darwin
+
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install Linux deps
+        if: matrix.platform == 'linux'
+        run: sudo apt-get update && sudo apt-get install -y libegl-dev libgles-dev
+
+      - name: Install npm deps
+        run: npm install --ignore-scripts
+
+      - name: Download ANGLE (macOS only)
+        if: matrix.platform == 'darwin'
+        run: npm run download-angle
+
+      - name: Build from source
+        run: npm run build
+        env:
+          NATIVE_GLES_FROM_SOURCE: 1
+
+      - name: Run tests
+        run: npm test
+
+      - name: Upload release
+        run: npm run upload-release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  test-install:
+    needs: build
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-22.04
+          - os: ubuntu-22.04-arm
+          - os: macos-15
+          - os: macos-13
+
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install from release (prebuild)
+        run: npm install
+
+      - name: Run tests
+        run: npm test

@@ -1,0 +1,4 @@
+build/
+publish/
+.github/
+scripts/install-deps-*
