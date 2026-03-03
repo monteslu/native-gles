@@ -1,8 +1,6 @@
 #include "egl_context.h"
 #include <cstdio>
 #include <cstring>
-#include <dlfcn.h>
-
 // EGL extension function types for device-based display
 typedef EGLBoolean (*PFNEGLQUERYDEVICESEXTPROC)(EGLint, EGLDeviceEXT*, EGLint*);
 typedef EGLDisplay (*PFNEGLGETPLATFORMDISPLAYEXTPROC)(EGLenum, void*, const EGLint*);
