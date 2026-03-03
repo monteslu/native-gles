@@ -24,8 +24,14 @@ jobs:
           - os: macos-15
             arch: arm64
             platform: darwin
+          - os: macos-13
+            arch: x64
+            platform: darwin
           - os: windows-2022
             arch: x64
+            platform: win32
+          - os: windows-11-arm
+            arch: arm64
             platform: win32
 
     runs-on: ${{ matrix.os }}
@@ -68,7 +74,9 @@ jobs:
           - os: ubuntu-22.04
           - os: ubuntu-22.04-arm
           - os: macos-15
+          - os: macos-13
           - os: windows-2022
+          - os: windows-11-arm
 
     runs-on: ${{ matrix.os }}
     steps:
