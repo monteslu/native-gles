@@ -1231,6 +1231,15 @@ void _bindBufferBase(const Napi::CallbackInfo& info) {
                      info[2].As<Napi::Number>().Uint32Value());
 }
 
+void _copyBufferSubData(const Napi::CallbackInfo& info) {
+    GLenum readTarget = info[0].As<Napi::Number>().Uint32Value();
+    GLenum writeTarget = info[1].As<Napi::Number>().Uint32Value();
+    intptr_t readOffset = info[2].As<Napi::Number>().Int64Value();
+    intptr_t writeOffset = info[3].As<Napi::Number>().Int64Value();
+    intptr_t size = info[4].As<Napi::Number>().Int64Value();
+    glCopyBufferSubData(readTarget, writeTarget, readOffset, writeOffset, size);
+}
+
 Napi::Value _getUniformBlockIndex(const Napi::CallbackInfo& info) {
     GLuint program = info[0].As<Napi::Number>().Uint32Value();
     std::string name = info[1].As<Napi::String>().Utf8Value();

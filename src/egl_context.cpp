@@ -44,16 +44,28 @@ static EGLDisplay getIndependentDisplay() {
     return display;
 }
 
-bool gles_context_create(GLESContext* ctx, int width, int height) {
+// Mali fbdev native window struct
+struct fbdev_window {
+    unsigned short width;
+    unsigned short height;
+};
+
+bool gles_context_create(GLESContext* ctx, int width, int height, bool windowSurface) {
     ctx->valid = false;
     ctx->width = width;
     ctx->height = height;
+    ctx->isWindowSurface = windowSurface;
 
-    // Try device-based display first (independent from SDL/X11/Wayland)
-    ctx->display = getIndependentDisplay();
-    if (ctx->display == EGL_NO_DISPLAY) {
-        // Fallback to default display
+    if (windowSurface) {
+        // Window surface mode: use default display (fbdev on Mali)
         ctx->display = eglGetDisplay(EGL_DEFAULT_DISPLAY);
+    } else {
+        // Try device-based display first (independent from SDL/X11/Wayland)
+        ctx->display = getIndependentDisplay();
+        if (ctx->display == EGL_NO_DISPLAY) {
+            // Fallback to default display
+            ctx->display = eglGetDisplay(EGL_DEFAULT_DISPLAY);
+        }
     }
 
     if (ctx->display == EGL_NO_DISPLAY) {
@@ -73,8 +85,9 @@ bool gles_context_create(GLESContext* ctx, int width, int height) {
         return false;
     }
 
+    EGLint surfaceType = windowSurface ? EGL_WINDOW_BIT : EGL_PBUFFER_BIT;
     EGLint configAttribs[] = {
-        EGL_SURFACE_TYPE, EGL_PBUFFER_BIT,
+        EGL_SURFACE_TYPE, surfaceType,
         EGL_RENDERABLE_TYPE, EGL_OPENGL_ES3_BIT,
         EGL_RED_SIZE, 8,
         EGL_GREEN_SIZE, 8,
@@ -92,17 +105,30 @@ bool gles_context_create(GLESContext* ctx, int width, int height) {
         return false;
     }
 
-    EGLint pbufferAttribs[] = {
-        EGL_WIDTH, width,
-        EGL_HEIGHT, height,
-        EGL_NONE
-    };
-
-    ctx->surface = eglCreatePbufferSurface(ctx->display, ctx->config, pbufferAttribs);
-    if (ctx->surface == EGL_NO_SURFACE) {
-        fprintf(stderr, "native-gles: eglCreatePbufferSurface failed\n");
-        eglTerminate(ctx->display);
-        return false;
+    if (windowSurface) {
+        // Create fbdev window surface — renders directly to framebuffer
+        static fbdev_window nativeWin;
+        nativeWin.width = (unsigned short)width;
+        nativeWin.height = (unsigned short)height;
+        ctx->surface = eglCreateWindowSurface(ctx->display, ctx->config,
+            (EGLNativeWindowType)&nativeWin, nullptr);
+        if (ctx->surface == EGL_NO_SURFACE) {
+            fprintf(stderr, "native-gles: eglCreateWindowSurface failed (0x%x)\n", eglGetError());
+            eglTerminate(ctx->display);
+            return false;
+        }
+    } else {
+        EGLint pbufferAttribs[] = {
+            EGL_WIDTH, width,
+            EGL_HEIGHT, height,
+            EGL_NONE
+        };
+        ctx->surface = eglCreatePbufferSurface(ctx->display, ctx->config, pbufferAttribs);
+        if (ctx->surface == EGL_NO_SURFACE) {
+            fprintf(stderr, "native-gles: eglCreatePbufferSurface failed\n");
+            eglTerminate(ctx->display);
+            return false;
+        }
     }
 
     EGLint contextAttribs[] = {
@@ -176,4 +202,14 @@ bool gles_context_resize(GLESContext* ctx, int width, int height) {
 bool gles_context_make_current(GLESContext* ctx) {
     if (!ctx->valid) return false;
     return eglMakeCurrent(ctx->display, ctx->surface, ctx->surface, ctx->context) == EGL_TRUE;
+}
+
+bool gles_context_release_current(GLESContext* ctx) {
+    if (!ctx->valid) return false;
+    return eglMakeCurrent(ctx->display, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT) == EGL_TRUE;
+}
+
+bool gles_context_swap(GLESContext* ctx) {
+    if (!ctx->valid) return false;
+    return eglSwapBuffers(ctx->display, ctx->surface) == EGL_TRUE;
 }

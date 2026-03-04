@@ -7,7 +7,14 @@ static GLESContext g_ctx = {};
 static Napi::Value createContext(const Napi::CallbackInfo& info) {
     int width = info[0].As<Napi::Number>().Int32Value();
     int height = info[1].As<Napi::Number>().Int32Value();
-    bool ok = gles_context_create(&g_ctx, width, height);
+    bool windowSurface = false;
+    if (info.Length() > 2 && info[2].IsObject()) {
+        auto opts = info[2].As<Napi::Object>();
+        if (opts.Has("windowSurface")) {
+            windowSurface = opts.Get("windowSurface").As<Napi::Boolean>().Value();
+        }
+    }
+    bool ok = gles_context_create(&g_ctx, width, height, windowSurface);
     return Napi::Boolean::New(info.Env(), ok);
 }
 
@@ -28,6 +35,16 @@ static Napi::Value makeCurrent(const Napi::CallbackInfo& info) {
     return Napi::Boolean::New(info.Env(), ok);
 }
 
+static Napi::Value releaseCurrent(const Napi::CallbackInfo& info) {
+    bool ok = gles_context_release_current(&g_ctx);
+    return Napi::Boolean::New(info.Env(), ok);
+}
+
+static Napi::Value swapBuffers(const Napi::CallbackInfo& info) {
+    bool ok = gles_context_swap(&g_ctx);
+    return Napi::Boolean::New(info.Env(), ok);
+}
+
 static Napi::Value getContextInfo(const Napi::CallbackInfo& info) {
     Napi::Env env = info.Env();
     auto obj = Napi::Object::New(env);
@@ -43,6 +60,8 @@ Napi::Object init(Napi::Env env, Napi::Object exports) {
     exports.Set("destroyContext", Napi::Function::New<destroyContext>(env));
     exports.Set("resizeContext", Napi::Function::New<resizeContext>(env));
     exports.Set("makeCurrent", Napi::Function::New<makeCurrent>(env));
+    exports.Set("releaseCurrent", Napi::Function::New<releaseCurrent>(env));
+    exports.Set("swapBuffers", Napi::Function::New<swapBuffers>(env));
     exports.Set("getContextInfo", Napi::Function::New<getContextInfo>(env));
 
     // State
@@ -263,6 +282,7 @@ Napi::Object init(Napi::Env env, Napi::Object exports) {
     // Uniform Buffer Objects
     exports.Set("glBindBufferRange", Napi::Function::New<gl::_bindBufferRange>(env));
     exports.Set("glBindBufferBase", Napi::Function::New<gl::_bindBufferBase>(env));
+    exports.Set("glCopyBufferSubData", Napi::Function::New<gl::_copyBufferSubData>(env));
     exports.Set("glGetUniformBlockIndex", Napi::Function::New<gl::_getUniformBlockIndex>(env));
     exports.Set("glGetActiveUniformBlockiv", Napi::Function::New<gl::_getActiveUniformBlockiv>(env));
     exports.Set("glGetActiveUniformBlockName", Napi::Function::New<gl::_getActiveUniformBlockName>(env));

@@ -220,6 +220,7 @@ namespace gl {
     // Uniform Buffer Objects
     void _bindBufferRange(const Napi::CallbackInfo& info);
     void _bindBufferBase(const Napi::CallbackInfo& info);
+    void _copyBufferSubData(const Napi::CallbackInfo& info);
     Napi::Value _getUniformBlockIndex(const Napi::CallbackInfo& info);
     void _getActiveUniformBlockiv(const Napi::CallbackInfo& info);
     Napi::Value _getActiveUniformBlockName(const Napi::CallbackInfo& info);
