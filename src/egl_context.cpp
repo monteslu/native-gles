@@ -59,7 +59,7 @@ struct fbdev_window {
     unsigned short height;
 };
 
-bool gles_context_create(GLESContext* ctx, int width, int height, bool windowSurface) {
+bool gles_context_create(GLESContext* ctx, int width, int height, bool windowSurface, void* nativeWindow) {
     ctx->valid = false;
     ctx->width = width;
     ctx->height = height;
@@ -115,12 +115,19 @@ bool gles_context_create(GLESContext* ctx, int width, int height, bool windowSur
     }
 
     if (windowSurface) {
-        // Create fbdev window surface — renders directly to framebuffer
-        static fbdev_window nativeWin;
-        nativeWin.width = (unsigned short)width;
-        nativeWin.height = (unsigned short)height;
+        EGLNativeWindowType winHandle;
+        static fbdev_window fbdevWin; // fbdev fallback
+        if (nativeWindow) {
+            // Use the native window handle from SDL (X11 Window, HWND, etc.)
+            winHandle = (EGLNativeWindowType)nativeWindow;
+        } else {
+            // Fallback: fbdev window (Mali/Knulli)
+            fbdevWin.width = (unsigned short)width;
+            fbdevWin.height = (unsigned short)height;
+            winHandle = (EGLNativeWindowType)&fbdevWin;
+        }
         ctx->surface = eglCreateWindowSurface(ctx->display, ctx->config,
-            (EGLNativeWindowType)&nativeWin, nullptr);
+            winHandle, nullptr);
         if (ctx->surface == EGL_NO_SURFACE) {
             fprintf(stderr, "native-gles: eglCreateWindowSurface failed (0x%x)\n", eglGetError());
             eglTerminate(ctx->display);

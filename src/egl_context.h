@@ -15,7 +15,7 @@ struct GLESContext {
     bool isWindowSurface;
 };
 
-bool gles_context_create(GLESContext* ctx, int width, int height, bool windowSurface = false);
+bool gles_context_create(GLESContext* ctx, int width, int height, bool windowSurface = false, void* nativeWindow = nullptr);
 void gles_context_destroy(GLESContext* ctx);
 bool gles_context_resize(GLESContext* ctx, int width, int height);
 bool gles_context_make_current(GLESContext* ctx);

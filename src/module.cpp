@@ -8,13 +8,21 @@ static Napi::Value createContext(const Napi::CallbackInfo& info) {
     int width = info[0].As<Napi::Number>().Int32Value();
     int height = info[1].As<Napi::Number>().Int32Value();
     bool windowSurface = false;
+    void* nativeWindow = nullptr;
     if (info.Length() > 2 && info[2].IsObject()) {
         auto opts = info[2].As<Napi::Object>();
         if (opts.Has("windowSurface")) {
             windowSurface = opts.Get("windowSurface").As<Napi::Boolean>().Value();
         }
+        if (opts.Has("nativeWindow") && opts.Get("nativeWindow").IsBuffer()) {
+            auto buf = opts.Get("nativeWindow").As<Napi::Buffer<uint8_t>>();
+            if (buf.Length() >= sizeof(void*)) {
+                nativeWindow = *reinterpret_cast<void**>(buf.Data());
+                windowSurface = true; // nativeWindow implies window surface
+            }
+        }
     }
-    bool ok = gles_context_create(&g_ctx, width, height, windowSurface);
+    bool ok = gles_context_create(&g_ctx, width, height, windowSurface, nativeWindow);
     return Napi::Boolean::New(info.Env(), ok);
 }
 

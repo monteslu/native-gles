@@ -1,5 +1,5 @@
 {
-  "version": "0.3.1",
+  "version": "0.4.0",
   "name": "native-gles",
   "description": "OpenGL ES 3.0 bindings for Node.js via EGL — native on Linux/ARM, ANGLE on macOS/Windows",
   "keywords": [
