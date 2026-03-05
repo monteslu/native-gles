@@ -268,7 +268,12 @@ void _texImage2D(const Napi::CallbackInfo& info) {
     GLenum type = info[7].As<Napi::Number>().Uint32Value();
     const void* data = nullptr;
     if (!info[8].IsNull() && !info[8].IsUndefined()) {
-        data = info[8].As<Napi::Uint8Array>().Data();
+        if (info[8].IsNumber()) {
+            // PBO offset
+            data = reinterpret_cast<const void*>(static_cast<intptr_t>(info[8].As<Napi::Number>().Int64Value()));
+        } else {
+            data = info[8].As<Napi::Uint8Array>().Data();
+        }
     }
     glTexImage2D(target, level, internalformat, width, height, border, format, type, data);
 }
@@ -282,8 +287,13 @@ void _texSubImage2D(const Napi::CallbackInfo& info) {
     GLsizei height = info[5].As<Napi::Number>().Int32Value();
     GLenum format = info[6].As<Napi::Number>().Uint32Value();
     GLenum type = info[7].As<Napi::Number>().Uint32Value();
-    auto data = info[8].As<Napi::Uint8Array>();
-    glTexSubImage2D(target, level, xoffset, yoffset, width, height, format, type, data.Data());
+    const void* data;
+    if (info[8].IsNumber()) {
+        data = reinterpret_cast<const void*>(static_cast<intptr_t>(info[8].As<Napi::Number>().Int64Value()));
+    } else {
+        data = info[8].As<Napi::Uint8Array>().Data();
+    }
+    glTexSubImage2D(target, level, xoffset, yoffset, width, height, format, type, data);
 }
 
 void _texParameteri(const Napi::CallbackInfo& info) {
@@ -629,6 +639,14 @@ void _readPixels(const Napi::CallbackInfo& info) {
     GLsizei height = info[3].As<Napi::Number>().Int32Value();
     GLenum format = info[4].As<Napi::Number>().Uint32Value();
     GLenum type = info[5].As<Napi::Number>().Uint32Value();
+
+    // PBO offset path: arg[6] is a number (offset into PIXEL_PACK_BUFFER)
+    if (info[6].IsNumber()) {
+        GLintptr offset = static_cast<GLintptr>(info[6].As<Napi::Number>().Int64Value());
+        glReadPixels(x, y, width, height, format, type, reinterpret_cast<void*>(offset));
+        return;
+    }
+
     auto pixels = info[6].As<Napi::Uint8Array>();
 
     // GLES 3.0 only allows reading float FBOs with the implementation-defined
@@ -1134,8 +1152,12 @@ void _texImage3D(const Napi::CallbackInfo& info) {
     GLenum format = info[7].As<Napi::Number>().Uint32Value();
     GLenum type = info[8].As<Napi::Number>().Uint32Value();
     const void* data = nullptr;
-    if (info.Length() > 9 && info[9].IsTypedArray()) {
-        data = getArrayData(info, 9);
+    if (info.Length() > 9 && !info[9].IsNull() && !info[9].IsUndefined()) {
+        if (info[9].IsNumber()) {
+            data = reinterpret_cast<const void*>(static_cast<intptr_t>(info[9].As<Napi::Number>().Int64Value()));
+        } else {
+            data = getArrayData(info, 9);
+        }
     }
     glTexImage3D(target, level, internalformat, width, height, depth, border, format, type, data);
 }
@@ -1151,8 +1173,13 @@ void _texSubImage3D(const Napi::CallbackInfo& info) {
     GLsizei depth = info[7].As<Napi::Number>().Int32Value();
     GLenum format = info[8].As<Napi::Number>().Uint32Value();
     GLenum type = info[9].As<Napi::Number>().Uint32Value();
-    auto data = info[10].As<Napi::Uint8Array>();
-    glTexSubImage3D(target, level, xoffset, yoffset, zoffset, width, height, depth, format, type, data.Data());
+    const void* data;
+    if (info[10].IsNumber()) {
+        data = reinterpret_cast<const void*>(static_cast<intptr_t>(info[10].As<Napi::Number>().Int64Value()));
+    } else {
+        data = info[10].As<Napi::Uint8Array>().Data();
+    }
+    glTexSubImage3D(target, level, xoffset, yoffset, zoffset, width, height, depth, format, type, data);
 }
 
 void _copyTexSubImage3D(const Napi::CallbackInfo& info) {
