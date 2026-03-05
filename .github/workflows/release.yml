@@ -60,6 +60,9 @@ jobs:
 
       - name: Run tests
         run: npm test
+        env:
+          EGL_PLATFORM: ${{ matrix.platform == 'linux' && 'surfaceless' || '' }}
+          LIBGL_ALWAYS_SOFTWARE: ${{ matrix.platform == 'linux' && '1' || '' }}
 
       - name: Upload release
         run: npm run upload-release
@@ -86,8 +89,15 @@ jobs:
         with:
           node-version: 22
 
+      - name: Install Linux deps
+        if: contains(matrix.os, 'ubuntu')
+        run: sudo apt-get update && sudo apt-get install -y libegl1-mesa libgles2-mesa
+
       - name: Install from release (prebuild)
         run: npm install
 
       - name: Run tests
         run: npm test
+        env:
+          EGL_PLATFORM: ${{ contains(matrix.os, 'ubuntu') && 'surfaceless' || '' }}
+          LIBGL_ALWAYS_SOFTWARE: ${{ contains(matrix.os, 'ubuntu') && '1' || '' }}

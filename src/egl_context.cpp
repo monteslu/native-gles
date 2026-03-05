@@ -1,5 +1,6 @@
 #include "egl_context.h"
 #include <cstdio>
+#include <cstdlib>
 #include <cstring>
 // EGL extension function types for device-based display
 typedef EGLBoolean (*PFNEGLQUERYDEVICESEXTPROC)(EGLint, EGLDeviceEXT*, EGLint*);
@@ -12,6 +13,14 @@ typedef EGLDisplay (*PFNEGLGETPLATFORMDISPLAYEXTPROC)(EGLenum, void*, const EGLi
 // Try to get an independent EGL display via EGL_EXT_device_enumeration.
 // This avoids conflicts with SDL or other libraries using the default display.
 static EGLDisplay getIndependentDisplay() {
+    // Skip device enumeration when LIBGL_ALWAYS_SOFTWARE is set — the device
+    // path selects a hardware device which conflicts with software rendering
+    // and causes a segfault on headless CI runners.
+    const char* swFlag = getenv("LIBGL_ALWAYS_SOFTWARE");
+    if (swFlag && swFlag[0] == '1') {
+        return EGL_NO_DISPLAY;
+    }
+
     // Check if extensions are available
     const char* clientExts = eglQueryString(EGL_NO_DISPLAY, EGL_EXTENSIONS);
     if (!clientExts) return EGL_NO_DISPLAY;
