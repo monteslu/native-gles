@@ -229,3 +229,8 @@ bool gles_context_swap(GLESContext* ctx) {
     if (!ctx->valid) return false;
     return eglSwapBuffers(ctx->display, ctx->surface) == EGL_TRUE;
 }
+
+bool gles_context_set_swap_interval(GLESContext* ctx, int interval) {
+    if (!ctx->valid) return false;
+    return eglSwapInterval(ctx->display, interval) == EGL_TRUE;
+}

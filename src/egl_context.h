@@ -21,3 +21,4 @@ bool gles_context_resize(GLESContext* ctx, int width, int height);
 bool gles_context_make_current(GLESContext* ctx);
 bool gles_context_release_current(GLESContext* ctx);
 bool gles_context_swap(GLESContext* ctx);
+bool gles_context_set_swap_interval(GLESContext* ctx, int interval);

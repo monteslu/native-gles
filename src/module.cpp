@@ -53,6 +53,12 @@ static Napi::Value swapBuffers(const Napi::CallbackInfo& info) {
     return Napi::Boolean::New(info.Env(), ok);
 }
 
+static Napi::Value setSwapInterval(const Napi::CallbackInfo& info) {
+    int interval = info[0].As<Napi::Number>().Int32Value();
+    bool ok = gles_context_set_swap_interval(&g_ctx, interval);
+    return Napi::Boolean::New(info.Env(), ok);
+}
+
 static Napi::Value getContextInfo(const Napi::CallbackInfo& info) {
     Napi::Env env = info.Env();
     auto obj = Napi::Object::New(env);
@@ -70,6 +76,7 @@ Napi::Object init(Napi::Env env, Napi::Object exports) {
     exports.Set("makeCurrent", Napi::Function::New<makeCurrent>(env));
     exports.Set("releaseCurrent", Napi::Function::New<releaseCurrent>(env));
     exports.Set("swapBuffers", Napi::Function::New<swapBuffers>(env));
+    exports.Set("setSwapInterval", Napi::Function::New<setSwapInterval>(env));
     exports.Set("getContextInfo", Napi::Function::New<getContextInfo>(env));
 
     // State
