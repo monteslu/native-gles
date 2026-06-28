@@ -853,6 +853,10 @@ Napi::Value _clientWaitSync(const Napi::CallbackInfo& info) {
     GLbitfield flags = info[1].As<Napi::Number>().Uint32Value();
     // timeout comes as two 32-bit halves from WASM, but from JS we get a single number
     GLuint64 timeout = static_cast<GLuint64>(info[2].As<Napi::Number>().Int64Value());
+    // Cap the blocking time: under single-threaded inline GL (e.g. emscripten libretro hosts), a
+    // long fence wait can deadlock the one thread that would signal it. 1ms keeps the host event
+    // loop responsive; callers treat GL_TIMEOUT_EXPIRED as "retry next tick".
+    if (timeout > 1000000ULL) timeout = 1000000ULL;  // 1ms in ns
     GLenum result = glClientWaitSync(sync, flags, timeout);
     return Napi::Number::New(info.Env(), result);
 }
