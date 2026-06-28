@@ -33,21 +33,17 @@ Napi::Value _getIntegerv(const Napi::CallbackInfo& info) {
     GLenum pname = info[0].As<Napi::Number>().Uint32Value();
     if (info.Length() >= 2 && info[1].IsTypedArray()) {
         auto arr = info[1].As<Napi::Int32Array>();
-        // romdev guard: many pnames write >1 int; an undersized array => OOB write => heap
-        // corruption. Require room for the max plausible (4 for VIEWPORT/SCISSOR/COLOR_WRITEMASK).
-        size_t need = 1;
-        switch (pname) {
-            case 0x0D3A: need = 2; break; // MAX_VIEWPORT_DIMS
-            case 0x0BA2: case 0x0C10: case 0x0C22: case 0x0C23: need = 4; break; // VIEWPORT, SCISSOR_BOX, COLOR_CLEAR/WRITEMASK
-            default: need = 1;
-        }
-        if (arr.ElementLength() < need) {
-            GLint tmp[4] = {0,0,0,0};
-            glGetIntegerv(pname, tmp);
-            for (size_t i=0;i<arr.ElementLength();i++) arr.Data()[i]=tmp[i];
-            return info.Env().Undefined();
-        }
-        glGetIntegerv(pname, arr.Data());
+        // SAFETY: glGetIntegerv writes a pname-dependent COUNT of ints, and some pnames
+        // (GL_COMPRESSED_TEXTURE_FORMATS, GL_PROGRAM_BINARY_FORMATS, etc.) write dozens —
+        // more than the caller's array. Writing straight to arr.Data() then overflows the JS
+        // buffer (real heap-buffer-overflow, found via ASAN: a 204-byte write into a small array).
+        // Query into a generous local buffer and copy only what fits.
+        GLint tmp[256];
+        for (int i = 0; i < 256; i++) tmp[i] = 0;
+        glGetIntegerv(pname, tmp);
+        size_t n = arr.ElementLength();
+        if (n > 256) n = 256;
+        for (size_t i = 0; i < n; i++) arr.Data()[i] = tmp[i];
         return info.Env().Undefined();
     }
     GLint value = 0;
@@ -755,9 +751,10 @@ Napi::Value _getBooleanv(const Napi::CallbackInfo& info) {
     GLenum pname = info[0].As<Napi::Number>().Uint32Value();
     if (info.Length() >= 2 && info[1].IsTypedArray()) {
         auto arr = info[1].As<Napi::Uint8Array>();
-        // Write directly to the typed array — GL writes GLboolean (1 byte each)
-        // For multi-value queries (e.g. GL_COLOR_WRITEMASK returns 4 booleans)
-        glGetBooleanv(pname, reinterpret_cast<GLboolean*>(arr.Data()));
+        GLboolean tmp[256]; for (int i=0;i<256;i++) tmp[i]=GL_FALSE;
+        glGetBooleanv(pname, tmp);
+        size_t n = arr.ElementLength(); if (n > 256) n = 256;
+        for (size_t i=0;i<n;i++) arr.Data()[i] = tmp[i];
         return info.Env().Undefined();
     }
     GLboolean value = GL_FALSE;
@@ -769,7 +766,10 @@ Napi::Value _getFloatv(const Napi::CallbackInfo& info) {
     GLenum pname = info[0].As<Napi::Number>().Uint32Value();
     if (info.Length() >= 2 && info[1].IsTypedArray()) {
         auto arr = info[1].As<Napi::Float32Array>();
-        glGetFloatv(pname, arr.Data());
+        GLfloat tmp[256]; for (int i=0;i<256;i++) tmp[i]=0.0f;
+        glGetFloatv(pname, tmp);
+        size_t n = arr.ElementLength(); if (n > 256) n = 256;
+        for (size_t i=0;i<n;i++) arr.Data()[i] = tmp[i];
         return info.Env().Undefined();
     }
     GLfloat value = 0.0f;
