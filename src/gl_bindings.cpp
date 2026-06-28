@@ -33,6 +33,20 @@ Napi::Value _getIntegerv(const Napi::CallbackInfo& info) {
     GLenum pname = info[0].As<Napi::Number>().Uint32Value();
     if (info.Length() >= 2 && info[1].IsTypedArray()) {
         auto arr = info[1].As<Napi::Int32Array>();
+        // romdev guard: many pnames write >1 int; an undersized array => OOB write => heap
+        // corruption. Require room for the max plausible (4 for VIEWPORT/SCISSOR/COLOR_WRITEMASK).
+        size_t need = 1;
+        switch (pname) {
+            case 0x0D3A: need = 2; break; // MAX_VIEWPORT_DIMS
+            case 0x0BA2: case 0x0C10: case 0x0C22: case 0x0C23: need = 4; break; // VIEWPORT, SCISSOR_BOX, COLOR_CLEAR/WRITEMASK
+            default: need = 1;
+        }
+        if (arr.ElementLength() < need) {
+            GLint tmp[4] = {0,0,0,0};
+            glGetIntegerv(pname, tmp);
+            for (size_t i=0;i<arr.ElementLength();i++) arr.Data()[i]=tmp[i];
+            return info.Env().Undefined();
+        }
         glGetIntegerv(pname, arr.Data());
         return info.Env().Undefined();
     }
