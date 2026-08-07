@@ -29,3 +29,32 @@ extern "C" void* gles_mac_layer_for_native_window(void* handle) {
     [view setWantsLayer:YES];
     return (void*)view.layer;
 }
+
+// Find the CAMetalLayer ANGLE's Metal backend hangs under the layer we gave
+// it and set displaySyncEnabled. This is the actual vsync switch on macOS:
+// this ANGLE build accepts eglSwapInterval(1) but never syncs, so swaps
+// free-run at thousands per second and timer-paced presents land at random
+// refresh phases (microstutter). Returns false while the CAMetalLayer does
+// not exist yet — ANGLE creates it lazily, so callers retry after a swap.
+static CAMetalLayer* findMetalLayer(CALayer* layer, int depth) {
+    if ([layer isKindOfClass:[CAMetalLayer class]]) return (CAMetalLayer*)layer;
+    if (depth <= 0) return nil;
+    for (CALayer* sub in layer.sublayers) {
+        CAMetalLayer* found = findMetalLayer(sub, depth - 1);
+        if (found) return found;
+    }
+    return nil;
+}
+
+extern "C" bool gles_mac_set_display_sync(void* layerHandle, bool enabled) {
+    if (!layerHandle) return false;
+    if (![NSThread isMainThread]) return false;
+    CALayer* root = (CALayer*)layerHandle;
+    CAMetalLayer* metal = findMetalLayer(root, 3);
+    if (!metal) return false;
+    if (@available(macOS 10.13, *)) {
+        metal.displaySyncEnabled = enabled ? YES : NO;
+        return true;
+    }
+    return false;
+}

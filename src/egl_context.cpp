@@ -53,6 +53,33 @@ static EGLDisplay getIndependentDisplay() {
     return display;
 }
 
+#ifdef __APPLE__
+#ifndef EGL_PLATFORM_ANGLE_ANGLE
+#define EGL_PLATFORM_ANGLE_ANGLE 0x3202
+#define EGL_PLATFORM_ANGLE_TYPE_ANGLE 0x3203
+#endif
+#ifndef EGL_PLATFORM_ANGLE_TYPE_METAL_ANGLE
+#define EGL_PLATFORM_ANGLE_TYPE_METAL_ANGLE 0x3489
+#endif
+// Prefer ANGLE's Metal backend on macOS. The default display resolves to the
+// CGL (OpenGL) backend, whose ANGLESwapCGLLayer free-runs: eglSwapInterval is
+// a no-op there, so a window present can never sync to the display — measured
+// ~20,000 swaps/sec with interval 1. The Metal backend presents through a
+// CAMetalLayer, where displaySyncEnabled gives real vsync (and CGL itself is
+// deprecated). EGL_NO_DISPLAY when this build lacks the Metal backend.
+static EGLDisplay getMetalDisplay() {
+    auto eglGetPlatformDisplayEXT = (PFNEGLGETPLATFORMDISPLAYEXTPROC)
+        eglGetProcAddress("eglGetPlatformDisplayEXT");
+    if (!eglGetPlatformDisplayEXT) return EGL_NO_DISPLAY;
+    const EGLint attribs[] = {
+        EGL_PLATFORM_ANGLE_TYPE_ANGLE, EGL_PLATFORM_ANGLE_TYPE_METAL_ANGLE,
+        EGL_NONE
+    };
+    return eglGetPlatformDisplayEXT(EGL_PLATFORM_ANGLE_ANGLE,
+        (void*)EGL_DEFAULT_DISPLAY, attribs);
+}
+#endif
+
 // Mali fbdev native window struct
 struct fbdev_window {
     unsigned short width;
@@ -65,28 +92,45 @@ bool gles_context_create(GLESContext* ctx, int width, int height, bool windowSur
     ctx->height = height;
     ctx->isWindowSurface = windowSurface;
     ctx->pbufferSurface = EGL_NO_SURFACE;
+    ctx->macLayer = nullptr;
+    ctx->macDesiredSync = -1;   // unset: leave whatever the driver does alone
+    ctx->macSyncApplied = true;
 
-    if (windowSurface) {
-        // Window surface mode: use default display (fbdev on Mali)
-        ctx->display = eglGetDisplay(EGL_DEFAULT_DISPLAY);
-    } else {
-        // Try device-based display first (independent from SDL/X11/Wayland)
-        ctx->display = getIndependentDisplay();
-        if (ctx->display == EGL_NO_DISPLAY) {
-            // Fallback to default display
-            ctx->display = eglGetDisplay(EGL_DEFAULT_DISPLAY);
+    bool displayInitialized = false;
+#ifdef __APPLE__
+    ctx->display = getMetalDisplay();
+    if (ctx->display != EGL_NO_DISPLAY) {
+        EGLint mtlMajor, mtlMinor;
+        if (eglInitialize(ctx->display, &mtlMajor, &mtlMinor)) {
+            displayInitialized = true;
+        } else {
+            ctx->display = EGL_NO_DISPLAY;   // build lacks Metal; use default
         }
     }
+#endif
+    if (!displayInitialized) {
+        if (windowSurface) {
+            // Window surface mode: use default display (fbdev on Mali)
+            ctx->display = eglGetDisplay(EGL_DEFAULT_DISPLAY);
+        } else {
+            // Try device-based display first (independent from SDL/X11/Wayland)
+            ctx->display = getIndependentDisplay();
+            if (ctx->display == EGL_NO_DISPLAY) {
+                // Fallback to default display
+                ctx->display = eglGetDisplay(EGL_DEFAULT_DISPLAY);
+            }
+        }
 
-    if (ctx->display == EGL_NO_DISPLAY) {
-        fprintf(stderr, "native-gles: eglGetDisplay failed\n");
-        return false;
-    }
+        if (ctx->display == EGL_NO_DISPLAY) {
+            fprintf(stderr, "native-gles: eglGetDisplay failed\n");
+            return false;
+        }
 
-    EGLint major, minor;
-    if (!eglInitialize(ctx->display, &major, &minor)) {
-        fprintf(stderr, "native-gles: eglInitialize failed\n");
-        return false;
+        EGLint major, minor;
+        if (!eglInitialize(ctx->display, &major, &minor)) {
+            fprintf(stderr, "native-gles: eglInitialize failed\n");
+            return false;
+        }
     }
 
     if (!eglBindAPI(EGL_OPENGL_ES_API)) {
@@ -135,6 +179,7 @@ bool gles_context_create(GLESContext* ctx, int width, int height, bool windowSur
                 eglTerminate(ctx->display);
                 return false;
             }
+            ctx->macLayer = nativeWindow;
         }
 #endif
         if (nativeWindow) {
@@ -202,6 +247,9 @@ void gles_context_destroy(GLESContext* ctx) {
     if (ctx->pbufferSurface != EGL_NO_SURFACE) {
         eglDestroySurface(ctx->display, ctx->pbufferSurface);
         ctx->pbufferSurface = EGL_NO_SURFACE;
+    ctx->macLayer = nullptr;
+    ctx->macDesiredSync = -1;   // unset: leave whatever the driver does alone
+    ctx->macSyncApplied = true;
     }
     eglTerminate(ctx->display);
 
@@ -260,12 +308,31 @@ bool gles_context_release_current(GLESContext* ctx) {
 
 bool gles_context_swap(GLESContext* ctx) {
     if (!ctx->valid) return false;
-    return eglSwapBuffers(ctx->display, ctx->surface) == EGL_TRUE;
+    bool ok = eglSwapBuffers(ctx->display, ctx->surface) == EGL_TRUE;
+#ifdef __APPLE__
+    /* ANGLE's Metal backend creates its CAMetalLayer on the first present,
+     * so a swap interval set before then had nothing to apply to. Retry
+     * until the layer exists; a one-boolean check per swap after that. */
+    if (ok && ctx->isWindowSurface && ctx->macLayer && !ctx->macSyncApplied) {
+        ctx->macSyncApplied = gles_mac_set_display_sync(ctx->macLayer, ctx->macDesiredSync >= 1);
+    }
+#endif
+    return ok;
 }
 
 bool gles_context_set_swap_interval(GLESContext* ctx, int interval) {
     if (!ctx->valid) return false;
-    return eglSwapInterval(ctx->display, interval) == EGL_TRUE;
+    bool ok = eglSwapInterval(ctx->display, interval) == EGL_TRUE;
+#ifdef __APPLE__
+    /* This ANGLE build accepts eglSwapInterval but Metal never syncs; the
+     * real switch is CAMetalLayer.displaySyncEnabled. Apply now if ANGLE
+     * already made its layer, else let swap() retry once it exists. */
+    if (ctx->isWindowSurface && ctx->macLayer) {
+        ctx->macDesiredSync = interval;
+        ctx->macSyncApplied = gles_mac_set_display_sync(ctx->macLayer, interval >= 1);
+    }
+#endif
+    return ok;
 }
 
 bool gles_context_attach_window(GLESContext* ctx, void* nativeWindow) {
@@ -300,6 +367,10 @@ bool gles_context_attach_window(GLESContext* ctx, void* nativeWindow) {
     ctx->pbufferSurface = ctx->surface;
     ctx->surface = winSurface;
     ctx->isWindowSurface = true;
+#ifdef __APPLE__
+    ctx->macLayer = nativeWindow;
+    ctx->macSyncApplied = ctx->macDesiredSync < 0;  // re-apply a pending interval to the new layer
+#endif
     return true;
 }
 
@@ -315,6 +386,9 @@ bool gles_context_detach_window(GLESContext* ctx) {
     eglDestroySurface(ctx->display, ctx->surface);
     ctx->surface = ctx->pbufferSurface;
     ctx->pbufferSurface = EGL_NO_SURFACE;
+    ctx->macLayer = nullptr;
+    ctx->macDesiredSync = -1;   // unset: leave whatever the driver does alone
+    ctx->macSyncApplied = true;
     ctx->isWindowSurface = false;
     return true;
 }

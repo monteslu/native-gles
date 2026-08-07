@@ -16,6 +16,13 @@ struct GLESContext {
     int height;
     bool valid;
     bool isWindowSurface;
+    // macOS: the CALayer backing the attached window, plus deferred vsync
+    // state — ANGLE's Metal backend ignores eglSwapInterval, so the swap
+    // interval is applied as CAMetalLayer.displaySyncEnabled instead, and
+    // that layer only exists after ANGLE's first present (see swap()).
+    void* macLayer;
+    int macDesiredSync;
+    bool macSyncApplied;
 };
 
 bool gles_context_create(GLESContext* ctx, int width, int height, bool windowSurface = false, void* nativeWindow = nullptr);
@@ -39,4 +46,7 @@ bool gles_context_detach_window(GLESContext* ctx);
 // object arrives to its backing CALayer. Returns null if the pointer is not
 // one of those or the view cannot be layer-backed.
 extern "C" void* gles_mac_layer_for_native_window(void* handle);
+// Set displaySyncEnabled on the CAMetalLayer ANGLE created under our layer.
+// False while that layer does not exist yet (ANGLE creates it lazily).
+extern "C" bool gles_mac_set_display_sync(void* layerHandle, bool enabled);
 #endif
