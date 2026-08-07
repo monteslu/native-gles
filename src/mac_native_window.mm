@@ -27,6 +27,14 @@ extern "C" void* gles_mac_layer_for_native_window(void* handle) {
     if (!view) return nullptr;
 
     [view setWantsLayer:YES];
+    // ANGLE's Metal backend sizes its CAMetalLayer drawable from this layer's
+    // contentsScale, which defaults to 1.0 — points, not pixels. On a Retina
+    // display the GL default framebuffer then comes out at half the window's
+    // backing resolution while the caller blits in backing pixels, and the
+    // picture lands in one quarter of the window. Match the backing scale.
+    CGFloat scale = view.window ? view.window.backingScaleFactor
+                                : (NSScreen.mainScreen ? NSScreen.mainScreen.backingScaleFactor : 1.0);
+    view.layer.contentsScale = scale;
     return (void*)view.layer;
 }
 
@@ -44,6 +52,32 @@ static CAMetalLayer* findMetalLayer(CALayer* layer, int depth) {
         if (found) return found;
     }
     return nil;
+}
+
+// Re-sync layer scale with the display the window is CURRENTLY on. Dragging
+// a window between monitors changes backingScaleFactor (2x laptop panel vs
+// 1x external, or the reverse), and a contentsScale set once at attach goes
+// stale: ANGLE's drawable stays sized for the old display and the picture
+// collapses into a corner of the window. Called once per swap — a few objc
+// messages, nanoseconds against a present. Updating the CAMetalLayer's
+// contentsScale is what makes ANGLE's per-present resize check recompute its
+// drawable size (bounds × contentsScale).
+extern "C" void gles_mac_sync_backing_scale(void* viewHandle, void* layerHandle) {
+    if (!viewHandle || !layerHandle) return;
+    if (![NSThread isMainThread]) return;
+    id obj = (id)viewHandle;
+    NSView* view = nil;
+    if ([obj isKindOfClass:[NSView class]]) {
+        view = (NSView*)obj;
+    } else if ([obj isKindOfClass:[NSWindow class]]) {
+        view = ((NSWindow*)obj).contentView;
+    }
+    if (!view || !view.window) return;
+    CGFloat scale = view.window.backingScaleFactor;
+    CALayer* root = (CALayer*)layerHandle;
+    if (root.contentsScale != scale) root.contentsScale = scale;
+    CAMetalLayer* metal = findMetalLayer(root, 3);
+    if (metal && metal.contentsScale != scale) metal.contentsScale = scale;
 }
 
 extern "C" bool gles_mac_set_display_sync(void* layerHandle, bool enabled) {

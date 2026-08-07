@@ -21,6 +21,7 @@ struct GLESContext {
     // interval is applied as CAMetalLayer.displaySyncEnabled instead, and
     // that layer only exists after ANGLE's first present (see swap()).
     void* macLayer;
+    void* macView;      // the ORIGINAL native handle (NSView*), for backing-scale re-sync
     int macDesiredSync;
     bool macSyncApplied;
 };
@@ -49,4 +50,7 @@ extern "C" void* gles_mac_layer_for_native_window(void* handle);
 // Set displaySyncEnabled on the CAMetalLayer ANGLE created under our layer.
 // False while that layer does not exist yet (ANGLE creates it lazily).
 extern "C" bool gles_mac_set_display_sync(void* layerHandle, bool enabled);
+// Match layer contentsScale to the display the window currently sits on
+// (stale after a cross-monitor drag; called once per swap).
+extern "C" void gles_mac_sync_backing_scale(void* viewHandle, void* layerHandle);
 #endif

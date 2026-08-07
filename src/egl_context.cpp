@@ -2,6 +2,19 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <map>
+
+// eglGetDisplay / eglGetPlatformDisplayEXT return the SAME EGLDisplay for the
+// same arguments, and eglTerminate destroys every context and surface on it —
+// so with more than one GLESContext alive, terminating on one destroy would
+// kill the others. Refcount instead; terminate when the last user goes away.
+static std::map<EGLDisplay, int> g_displayRefs;
+static void retainDisplay(EGLDisplay d) { g_displayRefs[d]++; }
+static void releaseDisplay(EGLDisplay d) {
+    auto it = g_displayRefs.find(d);
+    if (it == g_displayRefs.end()) { eglTerminate(d); return; }
+    if (--it->second <= 0) { g_displayRefs.erase(it); eglTerminate(d); }
+}
 // EGL extension function types for device-based display
 typedef EGLBoolean (*PFNEGLQUERYDEVICESEXTPROC)(EGLint, EGLDeviceEXT*, EGLint*);
 typedef EGLDisplay (*PFNEGLGETPLATFORMDISPLAYEXTPROC)(EGLenum, void*, const EGLint*);
@@ -93,6 +106,7 @@ bool gles_context_create(GLESContext* ctx, int width, int height, bool windowSur
     ctx->isWindowSurface = windowSurface;
     ctx->pbufferSurface = EGL_NO_SURFACE;
     ctx->macLayer = nullptr;
+    ctx->macView = nullptr;
     ctx->macDesiredSync = -1;   // unset: leave whatever the driver does alone
     ctx->macSyncApplied = true;
 
@@ -132,10 +146,11 @@ bool gles_context_create(GLESContext* ctx, int width, int height, bool windowSur
             return false;
         }
     }
+    retainDisplay(ctx->display);
 
     if (!eglBindAPI(EGL_OPENGL_ES_API)) {
         fprintf(stderr, "native-gles: eglBindAPI failed\n");
-        eglTerminate(ctx->display);
+        releaseDisplay(ctx->display);
         return false;
     }
 
@@ -163,7 +178,7 @@ bool gles_context_create(GLESContext* ctx, int width, int height, bool windowSur
         configAttribs[1] = windowSurface ? EGL_WINDOW_BIT : EGL_PBUFFER_BIT;
         if (!eglChooseConfig(ctx->display, configAttribs, &ctx->config, 1, &numConfigs) || numConfigs == 0) {
             fprintf(stderr, "native-gles: eglChooseConfig failed\n");
-            eglTerminate(ctx->display);
+            releaseDisplay(ctx->display);
             return false;
         }
     }
@@ -173,10 +188,11 @@ bool gles_context_create(GLESContext* ctx, int width, int height, bool windowSur
         static fbdev_window fbdevWin; // fbdev fallback
 #ifdef __APPLE__
         if (nativeWindow) {
+            ctx->macView = nativeWindow;
             nativeWindow = gles_mac_layer_for_native_window(nativeWindow);
             if (!nativeWindow) {
                 fprintf(stderr, "native-gles: macOS native window is not an NSView/NSWindow/CALayer\n");
-                eglTerminate(ctx->display);
+                releaseDisplay(ctx->display);
                 return false;
             }
             ctx->macLayer = nativeWindow;
@@ -196,7 +212,7 @@ bool gles_context_create(GLESContext* ctx, int width, int height, bool windowSur
             winHandle, nullptr);
         if (ctx->surface == EGL_NO_SURFACE) {
             fprintf(stderr, "native-gles: eglCreateWindowSurface failed (0x%x)\n", eglGetError());
-            eglTerminate(ctx->display);
+            releaseDisplay(ctx->display);
             return false;
         }
     } else {
@@ -208,7 +224,7 @@ bool gles_context_create(GLESContext* ctx, int width, int height, bool windowSur
         ctx->surface = eglCreatePbufferSurface(ctx->display, ctx->config, pbufferAttribs);
         if (ctx->surface == EGL_NO_SURFACE) {
             fprintf(stderr, "native-gles: eglCreatePbufferSurface failed\n");
-            eglTerminate(ctx->display);
+            releaseDisplay(ctx->display);
             return false;
         }
     }
@@ -222,7 +238,7 @@ bool gles_context_create(GLESContext* ctx, int width, int height, bool windowSur
     if (ctx->context == EGL_NO_CONTEXT) {
         fprintf(stderr, "native-gles: eglCreateContext failed\n");
         eglDestroySurface(ctx->display, ctx->surface);
-        eglTerminate(ctx->display);
+        releaseDisplay(ctx->display);
         return false;
     }
 
@@ -230,7 +246,7 @@ bool gles_context_create(GLESContext* ctx, int width, int height, bool windowSur
         fprintf(stderr, "native-gles: eglMakeCurrent failed\n");
         eglDestroyContext(ctx->display, ctx->context);
         eglDestroySurface(ctx->display, ctx->surface);
-        eglTerminate(ctx->display);
+        releaseDisplay(ctx->display);
         return false;
     }
 
@@ -247,11 +263,12 @@ void gles_context_destroy(GLESContext* ctx) {
     if (ctx->pbufferSurface != EGL_NO_SURFACE) {
         eglDestroySurface(ctx->display, ctx->pbufferSurface);
         ctx->pbufferSurface = EGL_NO_SURFACE;
-    ctx->macLayer = nullptr;
-    ctx->macDesiredSync = -1;   // unset: leave whatever the driver does alone
-    ctx->macSyncApplied = true;
     }
-    eglTerminate(ctx->display);
+    ctx->macLayer = nullptr;
+    ctx->macView = nullptr;
+    ctx->macDesiredSync = -1;
+    ctx->macSyncApplied = true;
+    releaseDisplay(ctx->display);
 
     ctx->valid = false;
 }
@@ -298,7 +315,11 @@ bool gles_context_resize(GLESContext* ctx, int width, int height) {
 
 bool gles_context_make_current(GLESContext* ctx) {
     if (!ctx->valid) return false;
-    return eglMakeCurrent(ctx->display, ctx->surface, ctx->surface, ctx->context) == EGL_TRUE;
+    if (eglMakeCurrent(ctx->display, ctx->surface, ctx->surface, ctx->context) != EGL_TRUE) {
+        fprintf(stderr, "native-gles: makeCurrent failed (0x%x)\n", eglGetError());
+        return false;
+    }
+    return true;
 }
 
 bool gles_context_release_current(GLESContext* ctx) {
@@ -310,11 +331,15 @@ bool gles_context_swap(GLESContext* ctx) {
     if (!ctx->valid) return false;
     bool ok = eglSwapBuffers(ctx->display, ctx->surface) == EGL_TRUE;
 #ifdef __APPLE__
-    /* ANGLE's Metal backend creates its CAMetalLayer on the first present,
-     * so a swap interval set before then had nothing to apply to. Retry
-     * until the layer exists; a one-boolean check per swap after that. */
-    if (ok && ctx->isWindowSurface && ctx->macLayer && !ctx->macSyncApplied) {
-        ctx->macSyncApplied = gles_mac_set_display_sync(ctx->macLayer, ctx->macDesiredSync >= 1);
+    if (ok && ctx->isWindowSurface && ctx->macLayer) {
+        /* Cross-monitor drags change the backing scale under us. */
+        gles_mac_sync_backing_scale(ctx->macView, ctx->macLayer);
+        /* ANGLE's Metal backend creates its CAMetalLayer on the first
+         * present, so a swap interval set before then had nothing to apply
+         * to. Retry until the layer exists; one boolean check after that. */
+        if (!ctx->macSyncApplied) {
+            ctx->macSyncApplied = gles_mac_set_display_sync(ctx->macLayer, ctx->macDesiredSync >= 1);
+        }
     }
 #endif
     return ok;
@@ -340,6 +365,7 @@ bool gles_context_attach_window(GLESContext* ctx, void* nativeWindow) {
     if (ctx->isWindowSurface) return false; // already attached
 
 #ifdef __APPLE__
+    void* macOriginalHandle = nativeWindow;
     nativeWindow = gles_mac_layer_for_native_window(nativeWindow);
     if (!nativeWindow) {
         fprintf(stderr, "native-gles: attachWindow: macOS native window is not an NSView/NSWindow/CALayer\n");
@@ -369,6 +395,7 @@ bool gles_context_attach_window(GLESContext* ctx, void* nativeWindow) {
     ctx->isWindowSurface = true;
 #ifdef __APPLE__
     ctx->macLayer = nativeWindow;
+    ctx->macView = macOriginalHandle;
     ctx->macSyncApplied = ctx->macDesiredSync < 0;  // re-apply a pending interval to the new layer
 #endif
     return true;
@@ -387,6 +414,7 @@ bool gles_context_detach_window(GLESContext* ctx) {
     ctx->surface = ctx->pbufferSurface;
     ctx->pbufferSurface = EGL_NO_SURFACE;
     ctx->macLayer = nullptr;
+    ctx->macView = nullptr;
     ctx->macDesiredSync = -1;   // unset: leave whatever the driver does alone
     ctx->macSyncApplied = true;
     ctx->isWindowSurface = false;

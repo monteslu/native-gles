@@ -1,8 +1,41 @@
 #include <napi.h>
+#include <unordered_map>
 #include "egl_context.h"
 #include "gl_bindings.h"
 
-static GLESContext g_ctx = {};
+/*
+ * Context registry.
+ *
+ * One process holds MANY consumers (per-session bezel compositors, wasmcart
+ * GL carts, HW-render cores), and the old single `static GLESContext` meant
+ * they all silently shared one context — safe only while everything rendered
+ * offscreen and read back CPU pixels. The moment one consumer bound the
+ * shared context to a window, every other consumer's GL work drew into and
+ * presented from that window (one session's game showing inside another
+ * session's window is exactly how it was found).
+ *
+ * createContext() now returns an integer handle (> 0, so existing truthiness
+ * checks keep working) and every context-management call takes an optional
+ * trailing id. Omitting the id targets the CURRENT context — the last one
+ * created or made current — which preserves the old single-consumer
+ * behavior exactly. GL draw calls stay global: they act on whatever context
+ * is current, which is EGL's own model.
+ */
+static std::unordered_map<int32_t, GLESContext> g_contexts;
+static int32_t g_nextId = 1;
+static int32_t g_currentId = 0;
+
+static int32_t idArg(const Napi::CallbackInfo& info, size_t index) {
+    if (info.Length() > index && info[index].IsNumber()) {
+        return info[index].As<Napi::Number>().Int32Value();
+    }
+    return g_currentId;
+}
+
+static GLESContext* ctxById(int32_t id) {
+    auto it = g_contexts.find(id);
+    return it == g_contexts.end() ? nullptr : &it->second;
+}
 
 static Napi::Value createContext(const Napi::CallbackInfo& info) {
     int width = info[0].As<Napi::Number>().Int32Value();
@@ -22,50 +55,73 @@ static Napi::Value createContext(const Napi::CallbackInfo& info) {
             }
         }
     }
-    bool ok = gles_context_create(&g_ctx, width, height, windowSurface, nativeWindow);
-    return Napi::Boolean::New(info.Env(), ok);
+    GLESContext ctx = {};
+    if (!gles_context_create(&ctx, width, height, windowSurface, nativeWindow)) {
+        return Napi::Number::New(info.Env(), 0);
+    }
+    int32_t id = g_nextId++;
+    g_contexts[id] = ctx;
+    g_currentId = id;
+    return Napi::Number::New(info.Env(), id);
 }
 
 static Napi::Value destroyContext(const Napi::CallbackInfo& info) {
-    gles_context_destroy(&g_ctx);
+    int32_t id = idArg(info, 0);
+    auto it = g_contexts.find(id);
+    if (it != g_contexts.end()) {
+        gles_context_destroy(&it->second);
+        g_contexts.erase(it);
+        if (g_currentId == id) g_currentId = 0;
+    }
     return info.Env().Undefined();
 }
 
 static Napi::Value resizeContext(const Napi::CallbackInfo& info) {
     int width = info[0].As<Napi::Number>().Int32Value();
     int height = info[1].As<Napi::Number>().Int32Value();
-    bool ok = gles_context_resize(&g_ctx, width, height);
+    GLESContext* ctx = ctxById(idArg(info, 2));
+    bool ok = ctx ? gles_context_resize(ctx, width, height) : false;
     return Napi::Boolean::New(info.Env(), ok);
 }
 
 static Napi::Value makeCurrent(const Napi::CallbackInfo& info) {
-    bool ok = gles_context_make_current(&g_ctx);
+    int32_t id = idArg(info, 0);
+    GLESContext* ctx = ctxById(id);
+    bool ok = ctx ? gles_context_make_current(ctx) : false;
+    if (ok) g_currentId = id;
     return Napi::Boolean::New(info.Env(), ok);
 }
 
 static Napi::Value releaseCurrent(const Napi::CallbackInfo& info) {
-    bool ok = gles_context_release_current(&g_ctx);
+    GLESContext* ctx = ctxById(g_currentId);
+    bool ok = ctx ? gles_context_release_current(ctx) : false;
     return Napi::Boolean::New(info.Env(), ok);
 }
 
 static Napi::Value swapBuffers(const Napi::CallbackInfo& info) {
-    bool ok = gles_context_swap(&g_ctx);
+    GLESContext* ctx = ctxById(idArg(info, 0));
+    bool ok = ctx ? gles_context_swap(ctx) : false;
     return Napi::Boolean::New(info.Env(), ok);
 }
 
 static Napi::Value setSwapInterval(const Napi::CallbackInfo& info) {
     int interval = info[0].As<Napi::Number>().Int32Value();
-    bool ok = gles_context_set_swap_interval(&g_ctx, interval);
+    GLESContext* ctx = ctxById(idArg(info, 1));
+    bool ok = ctx ? gles_context_set_swap_interval(ctx, interval) : false;
     return Napi::Boolean::New(info.Env(), ok);
 }
 
 static Napi::Value getContextInfo(const Napi::CallbackInfo& info) {
     Napi::Env env = info.Env();
+    int32_t id = idArg(info, 0);
+    GLESContext* ctx = ctxById(id);
     auto obj = Napi::Object::New(env);
-    obj.Set("valid", Napi::Boolean::New(env, g_ctx.valid));
-    obj.Set("width", Napi::Number::New(env, g_ctx.width));
-    obj.Set("height", Napi::Number::New(env, g_ctx.height));
-    obj.Set("isWindowSurface", Napi::Boolean::New(env, g_ctx.isWindowSurface));
+    obj.Set("id", Napi::Number::New(env, ctx ? id : 0));
+    obj.Set("valid", Napi::Boolean::New(env, ctx ? ctx->valid : false));
+    obj.Set("width", Napi::Number::New(env, ctx ? ctx->width : 0));
+    obj.Set("height", Napi::Number::New(env, ctx ? ctx->height : 0));
+    obj.Set("isWindowSurface", Napi::Boolean::New(env, ctx ? ctx->isWindowSurface : false));
+    obj.Set("contextCount", Napi::Number::New(env, (double)g_contexts.size()));
     return obj;
 }
 
@@ -78,12 +134,14 @@ static void* nativeWindowFromBuffer(const Napi::Value& value) {
 
 static Napi::Value attachWindow(const Napi::CallbackInfo& info) {
     void* nativeWindow = info.Length() > 0 ? nativeWindowFromBuffer(info[0]) : nullptr;
-    bool ok = gles_context_attach_window(&g_ctx, nativeWindow);
+    GLESContext* ctx = ctxById(idArg(info, 1));
+    bool ok = ctx ? gles_context_attach_window(ctx, nativeWindow) : false;
     return Napi::Boolean::New(info.Env(), ok);
 }
 
 static Napi::Value detachWindow(const Napi::CallbackInfo& info) {
-    bool ok = gles_context_detach_window(&g_ctx);
+    GLESContext* ctx = ctxById(idArg(info, 0));
+    bool ok = ctx ? gles_context_detach_window(ctx) : false;
     return Napi::Boolean::New(info.Env(), ok);
 }
 
