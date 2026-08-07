@@ -43,17 +43,26 @@ gl.destroyContext()
 
 ### Context Management
 
+native-gles is **multi-context**: `createContext` returns an integer handle,
+and any number of contexts can coexist in one process, each with its own
+object namespace. Every context-management call takes an optional trailing
+`id`; omitting it targets the *current* context (the last one created or made
+current), which is exactly the old single-context behavior — existing callers
+keep working unchanged. GL draw calls (`gl.gl*`) are global and act on
+whichever context is current, which is EGL's own model: call `makeCurrent(id)`
+before rendering whenever more than one context exists.
+
 | Function | Description |
 |----------|-------------|
-| `createContext(width, height)` | Create EGL pbuffer context. Returns `true` on success. |
-| `destroyContext()` | Destroy context and free resources. |
-| `resizeContext(width, height)` | Resize the pbuffer surface. No-op (returns `true`) while a window surface is attached — window surfaces track their window. |
-| `makeCurrent()` | Make this context current (useful after SDL or other EGL contexts). |
-| `attachWindow(handleBuffer)` | Bind a native window surface to the **existing** context — every texture, FBO and compiled program survives, because the context is never destroyed. Takes the pointer buffer from SDL's `window.native.handle` (X11 `Window`, `HWND`; on macOS an `NSView*`, resolved internally to its backing `CALayer`). Fails non-destructively: on error the pbuffer stays current. |
-| `detachWindow()` | Restore the retained pbuffer surface and destroy the window surface. The context and all GL objects are untouched. |
-| `swapBuffers()` | Swap the current surface (present, when a window surface is attached). |
-| `setSwapInterval(n)` | Swap interval; `0` = never block on vsync. |
-| `getContextInfo()` | Returns `{ valid, width, height, isWindowSurface }`. |
+| `createContext(width, height, opts?)` | Create an EGL context (pbuffer by default). Returns the context **handle** (int > 0), or `0` on failure — truthy/falsy like the old boolean. `opts`: `{ windowSurface, nativeWindow }`. |
+| `destroyContext(id?)` | Destroy a context and free its resources. The shared `EGLDisplay` is refcounted, so destroying one context never tears down the others. |
+| `resizeContext(width, height, id?)` | Resize the pbuffer surface. No-op (returns `true`) while a window surface is attached — window surfaces track their window. |
+| `makeCurrent(id?)` | Make a context current. Required before rendering when the process holds more than one context. |
+| `attachWindow(handleBuffer, id?)` | Bind a native window surface to the **existing** context — every texture, FBO and compiled program survives, because the context is never destroyed. Takes the pointer buffer from SDL's `window.native.handle` (X11 `Window`, `HWND`; on macOS an `NSView*`, resolved internally to its backing `CALayer`). Fails non-destructively: on error the pbuffer stays current. |
+| `detachWindow(id?)` | Restore the retained pbuffer surface and destroy the window surface. The context and all GL objects are untouched. |
+| `swapBuffers(id?)` | Swap the surface (present, when a window surface is attached). |
+| `setSwapInterval(n, id?)` | Swap interval; `1` blocks presents on vsync. On macOS this drives `CAMetalLayer.displaySyncEnabled` (see below). |
+| `getContextInfo(id?)` | Returns `{ id, valid, width, height, isWindowSurface, contextCount }`. |
 
 ### GL Functions (246 — full GLES 3.0 spec)
 
@@ -105,9 +114,16 @@ All functions use the `gl.glFunctionName(...)` convention. Every function in the
 
 ## EGL Context
 
-The context uses `EGL_EXT_device_enumeration` when available for a device-based display independent of X11/Wayland/SDL. Falls back to the default EGL display otherwise. This prevents conflicts with other libraries that create their own EGL contexts.
+Headless contexts use `EGL_EXT_device_enumeration` when available for a device-based display independent of X11/Wayland/SDL. Falls back to the default EGL display otherwise. This prevents conflicts with other libraries that create their own EGL contexts.
 
-Configuration: GLES 3.0, 8-bit RGBA, 24-bit depth, 8-bit stencil, pbuffer surface.
+Configuration: GLES 3.0, 8-bit RGBA, 24-bit depth, 8-bit stencil. Configs are chosen with `EGL_WINDOW_BIT | EGL_PBUFFER_BIT` so `attachWindow` can bind a window surface to a live context (single-bit fallback where the display exposes no dual config — there, `attachWindow` refuses non-destructively).
+
+### macOS
+
+- The display is requested from **ANGLE's Metal backend** (`EGL_ANGLE_platform_angle`). The default display resolves to ANGLE's deprecated CGL backend, whose swap layer free-runs — `eglSwapInterval` is accepted but ignored, making vsync impossible. Falls back to the default display on builds without Metal.
+- SDL's native handle is an `NSView*`; it is resolved to the view's backing `CALayer` (what ANGLE actually validates), with `NSWindow*` and `CALayer*` handles also accepted.
+- `setSwapInterval(1)` applies `CAMetalLayer.displaySyncEnabled` on the layer ANGLE creates — lazily, since that layer only exists after ANGLE's first present.
+- The layer's `contentsScale` is re-synced to the window's `backingScaleFactor` on every swap, so dragging a window between displays with different scales (Retina laptop ↔ external monitor) keeps the drawable at the right resolution.
 
 ## Tests
 
@@ -115,10 +131,16 @@ Configuration: GLES 3.0, 8-bit RGBA, 24-bit depth, 8-bit stencil, pbuffer surfac
 npm test
 ```
 
-Runs three tests:
+Runs the suite:
 - `test_context.js` — context create/destroy/resize lifecycle
 - `test_triangle.js` — renders a red triangle, reads back pixels, verifies color
 - `test_shader.js` — shader compilation and program linking
+- `test_window_attach.js` — attach/detach API refuses bad input non-destructively (headless-safe)
+- `test_multi_context.js` — two contexts: isolated object namespaces and pixels; destroying one leaves the other rendering
+
+`test/manual_window_attach.js` (not in `npm test`: it opens a window) proves
+GL objects survive `attachWindow` against a real SDL window — run it with
+`NODE_PATH` pointing at a node_modules that has `@kmamal/sdl`.
 
 ## Building from Source
 
