@@ -28,7 +28,7 @@
     "download-release": "cd scripts && node download-release.mjs",
     "download-angle": "cd scripts && node download-angle.mjs",
     "upload-release": "cd scripts && node upload-release.mjs",
-    "test": "node test/test_context.js && node test/test_triangle.js && node test/test_shader.js",
+    "test": "node test/test_context.js && node test/test_triangle.js && node test/test_shader.js && node test/test_window_attach.js",
     "clean": "cd scripts && node clean.mjs"
   },
   "dependencies": {

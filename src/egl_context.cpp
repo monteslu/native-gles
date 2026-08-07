@@ -64,6 +64,7 @@ bool gles_context_create(GLESContext* ctx, int width, int height, bool windowSur
     ctx->width = width;
     ctx->height = height;
     ctx->isWindowSurface = windowSurface;
+    ctx->pbufferSurface = EGL_NO_SURFACE;
 
     if (windowSurface) {
         // Window surface mode: use default display (fbdev on Mali)
@@ -94,9 +95,15 @@ bool gles_context_create(GLESContext* ctx, int width, int height, bool windowSur
         return false;
     }
 
-    EGLint surfaceType = windowSurface ? EGL_WINDOW_BIT : EGL_PBUFFER_BIT;
+    // Prefer a config usable with BOTH pbuffer and window surfaces: EGL only
+    // lets a context bind surfaces from a compatible config, so a dual-bit
+    // config is what makes attach_window possible later WITHOUT destroying
+    // the context (and with it every texture, FBO and compiled program).
+    // Headless displays (the device-platform path) may expose no
+    // window-capable config — fall back to the single required bit; the
+    // context still works, and attach_window fails non-destructively.
     EGLint configAttribs[] = {
-        EGL_SURFACE_TYPE, surfaceType,
+        EGL_SURFACE_TYPE, EGL_WINDOW_BIT | EGL_PBUFFER_BIT,
         EGL_RENDERABLE_TYPE, EGL_OPENGL_ES3_BIT,
         EGL_RED_SIZE, 8,
         EGL_GREEN_SIZE, 8,
@@ -109,16 +116,30 @@ bool gles_context_create(GLESContext* ctx, int width, int height, bool windowSur
 
     EGLint numConfigs;
     if (!eglChooseConfig(ctx->display, configAttribs, &ctx->config, 1, &numConfigs) || numConfigs == 0) {
-        fprintf(stderr, "native-gles: eglChooseConfig failed\n");
-        eglTerminate(ctx->display);
-        return false;
+        configAttribs[1] = windowSurface ? EGL_WINDOW_BIT : EGL_PBUFFER_BIT;
+        if (!eglChooseConfig(ctx->display, configAttribs, &ctx->config, 1, &numConfigs) || numConfigs == 0) {
+            fprintf(stderr, "native-gles: eglChooseConfig failed\n");
+            eglTerminate(ctx->display);
+            return false;
+        }
     }
 
     if (windowSurface) {
         EGLNativeWindowType winHandle;
         static fbdev_window fbdevWin; // fbdev fallback
+#ifdef __APPLE__
         if (nativeWindow) {
-            // Use the native window handle from SDL (X11 Window, HWND, etc.)
+            nativeWindow = gles_mac_layer_for_native_window(nativeWindow);
+            if (!nativeWindow) {
+                fprintf(stderr, "native-gles: macOS native window is not an NSView/NSWindow/CALayer\n");
+                eglTerminate(ctx->display);
+                return false;
+            }
+        }
+#endif
+        if (nativeWindow) {
+            // Use the native window handle from SDL (X11 Window, HWND;
+            // on macOS resolved above to the view's backing CALayer)
             winHandle = (EGLNativeWindowType)nativeWindow;
         } else {
             // Fallback: fbdev window (Mali/Knulli)
@@ -178,6 +199,10 @@ void gles_context_destroy(GLESContext* ctx) {
     eglMakeCurrent(ctx->display, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT);
     eglDestroyContext(ctx->display, ctx->context);
     eglDestroySurface(ctx->display, ctx->surface);
+    if (ctx->pbufferSurface != EGL_NO_SURFACE) {
+        eglDestroySurface(ctx->display, ctx->pbufferSurface);
+        ctx->pbufferSurface = EGL_NO_SURFACE;
+    }
     eglTerminate(ctx->display);
 
     ctx->valid = false;
@@ -185,6 +210,14 @@ void gles_context_destroy(GLESContext* ctx) {
 
 bool gles_context_resize(GLESContext* ctx, int width, int height) {
     if (!ctx->valid) return false;
+
+    // A window surface tracks its window's size on its own; recreating it as
+    // a pbuffer here would silently detach the window. Just record the size.
+    if (ctx->isWindowSurface) {
+        ctx->width = width;
+        ctx->height = height;
+        return true;
+    }
 
     // Destroy old surface
     eglMakeCurrent(ctx->display, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT);
@@ -233,4 +266,55 @@ bool gles_context_swap(GLESContext* ctx) {
 bool gles_context_set_swap_interval(GLESContext* ctx, int interval) {
     if (!ctx->valid) return false;
     return eglSwapInterval(ctx->display, interval) == EGL_TRUE;
+}
+
+bool gles_context_attach_window(GLESContext* ctx, void* nativeWindow) {
+    if (!ctx->valid || !nativeWindow) return false;
+    if (ctx->isWindowSurface) return false; // already attached
+
+#ifdef __APPLE__
+    nativeWindow = gles_mac_layer_for_native_window(nativeWindow);
+    if (!nativeWindow) {
+        fprintf(stderr, "native-gles: attachWindow: macOS native window is not an NSView/NSWindow/CALayer\n");
+        return false;
+    }
+#endif
+
+    // Same display, same config, same context — only the surface changes.
+    // If the config lacks EGL_WINDOW_BIT (single-bit fallback at create),
+    // this fails with EGL_BAD_MATCH and the pbuffer stays current.
+    EGLSurface winSurface = eglCreateWindowSurface(ctx->display, ctx->config,
+        (EGLNativeWindowType)nativeWindow, nullptr);
+    if (winSurface == EGL_NO_SURFACE) {
+        fprintf(stderr, "native-gles: attachWindow eglCreateWindowSurface failed (0x%x)\n", eglGetError());
+        return false;
+    }
+
+    if (!eglMakeCurrent(ctx->display, winSurface, winSurface, ctx->context)) {
+        fprintf(stderr, "native-gles: attachWindow eglMakeCurrent failed (0x%x)\n", eglGetError());
+        eglDestroySurface(ctx->display, winSurface);
+        eglMakeCurrent(ctx->display, ctx->surface, ctx->surface, ctx->context);
+        return false;
+    }
+
+    ctx->pbufferSurface = ctx->surface;
+    ctx->surface = winSurface;
+    ctx->isWindowSurface = true;
+    return true;
+}
+
+bool gles_context_detach_window(GLESContext* ctx) {
+    if (!ctx->valid || !ctx->isWindowSurface) return false;
+    if (ctx->pbufferSurface == EGL_NO_SURFACE) return false; // created AS a window; nothing to restore
+
+    if (!eglMakeCurrent(ctx->display, ctx->pbufferSurface, ctx->pbufferSurface, ctx->context)) {
+        fprintf(stderr, "native-gles: detachWindow eglMakeCurrent failed (0x%x)\n", eglGetError());
+        return false;
+    }
+
+    eglDestroySurface(ctx->display, ctx->surface);
+    ctx->surface = ctx->pbufferSurface;
+    ctx->pbufferSurface = EGL_NO_SURFACE;
+    ctx->isWindowSurface = false;
+    return true;
 }

@@ -20,12 +20,17 @@
 				'libraries': [ '-lEGL', '-lGLESv2' ],
 			}],
 			['OS == "mac"', {
+				'sources': [ 'src/mac_native_window.mm' ],
 				'cflags_cc': [ '-std=c++17' ],
 				'xcode_settings': { 'OTHER_CFLAGS': [ '-std=c++17' ] },
 				'include_dirs': [ '$(ANGLE_INC)' ],
 				'libraries': [ '-L$(ANGLE_LIB)', '-lEGL', '-lGLESv2' ],
 				'link_settings': {
-					'libraries': [ '-Wl,-rpath,@loader_path' ],
+					'libraries': [
+						'-Wl,-rpath,@loader_path',
+						'-framework Cocoa',
+						'-framework QuartzCore',
+					],
 				},
 			}],
 			['OS == "win"', {

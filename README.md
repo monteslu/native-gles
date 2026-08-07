@@ -47,9 +47,13 @@ gl.destroyContext()
 |----------|-------------|
 | `createContext(width, height)` | Create EGL pbuffer context. Returns `true` on success. |
 | `destroyContext()` | Destroy context and free resources. |
-| `resizeContext(width, height)` | Resize the pbuffer surface. |
+| `resizeContext(width, height)` | Resize the pbuffer surface. No-op (returns `true`) while a window surface is attached — window surfaces track their window. |
 | `makeCurrent()` | Make this context current (useful after SDL or other EGL contexts). |
-| `getContextInfo()` | Returns `{ valid, width, height }`. |
+| `attachWindow(handleBuffer)` | Bind a native window surface to the **existing** context — every texture, FBO and compiled program survives, because the context is never destroyed. Takes the pointer buffer from SDL's `window.native.handle` (X11 `Window`, `HWND`; on macOS an `NSView*`, resolved internally to its backing `CALayer`). Fails non-destructively: on error the pbuffer stays current. |
+| `detachWindow()` | Restore the retained pbuffer surface and destroy the window surface. The context and all GL objects are untouched. |
+| `swapBuffers()` | Swap the current surface (present, when a window surface is attached). |
+| `setSwapInterval(n)` | Swap interval; `0` = never block on vsync. |
+| `getContextInfo()` | Returns `{ valid, width, height, isWindowSurface }`. |
 
 ### GL Functions (246 — full GLES 3.0 spec)
 

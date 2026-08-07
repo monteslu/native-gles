@@ -65,7 +65,26 @@ static Napi::Value getContextInfo(const Napi::CallbackInfo& info) {
     obj.Set("valid", Napi::Boolean::New(env, g_ctx.valid));
     obj.Set("width", Napi::Number::New(env, g_ctx.width));
     obj.Set("height", Napi::Number::New(env, g_ctx.height));
+    obj.Set("isWindowSurface", Napi::Boolean::New(env, g_ctx.isWindowSurface));
     return obj;
+}
+
+static void* nativeWindowFromBuffer(const Napi::Value& value) {
+    if (!value.IsBuffer()) return nullptr;
+    auto buf = value.As<Napi::Buffer<uint8_t>>();
+    if (buf.Length() < sizeof(void*)) return nullptr;
+    return *reinterpret_cast<void**>(buf.Data());
+}
+
+static Napi::Value attachWindow(const Napi::CallbackInfo& info) {
+    void* nativeWindow = info.Length() > 0 ? nativeWindowFromBuffer(info[0]) : nullptr;
+    bool ok = gles_context_attach_window(&g_ctx, nativeWindow);
+    return Napi::Boolean::New(info.Env(), ok);
+}
+
+static Napi::Value detachWindow(const Napi::CallbackInfo& info) {
+    bool ok = gles_context_detach_window(&g_ctx);
+    return Napi::Boolean::New(info.Env(), ok);
 }
 
 Napi::Object init(Napi::Env env, Napi::Object exports) {
@@ -78,6 +97,8 @@ Napi::Object init(Napi::Env env, Napi::Object exports) {
     exports.Set("swapBuffers", Napi::Function::New<swapBuffers>(env));
     exports.Set("setSwapInterval", Napi::Function::New<setSwapInterval>(env));
     exports.Set("getContextInfo", Napi::Function::New<getContextInfo>(env));
+    exports.Set("attachWindow", Napi::Function::New<attachWindow>(env));
+    exports.Set("detachWindow", Napi::Function::New<detachWindow>(env));
 
     // State
     exports.Set("glEnable", Napi::Function::New<gl::_enable>(env));
