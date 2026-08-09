@@ -22,6 +22,9 @@ typedef EGLDisplay (*PFNEGLGETPLATFORMDISPLAYEXTPROC)(EGLenum, void*, const EGLi
 #ifndef EGL_PLATFORM_DEVICE_EXT
 #define EGL_PLATFORM_DEVICE_EXT 0x313F
 #endif
+#ifndef EGL_PLATFORM_X11_KHR
+#define EGL_PLATFORM_X11_KHR 0x31D5
+#endif
 
 // Try to get an independent EGL display via EGL_EXT_device_enumeration.
 // This avoids conflicts with SDL or other libraries using the default display.
@@ -31,6 +34,18 @@ static EGLDisplay getIndependentDisplay() {
     // and causes a segfault on headless CI runners.
     const char* swFlag = getenv("LIBGL_ALWAYS_SOFTWARE");
     if (swFlag && swFlag[0] == '1') {
+        return EGL_NO_DISPLAY;
+    }
+
+    // Skip device enumeration when a desktop is reachable. A device-platform
+    // display has no native window concept, so attach_window on a context
+    // created against it ALWAYS fails (EGL_BAD_NATIVE_WINDOW) — which
+    // silently killed GL-direct window present for every consumer on a
+    // desktop (measured: 29ms software blits and a half-speed game). With
+    // DISPLAY set we bind the X11/default display instead, exactly what
+    // 0.5.x did; headless CI has no DISPLAY and keeps the device path.
+    const char* x11Disp = getenv("DISPLAY");
+    if (x11Disp && x11Disp[0]) {
         return EGL_NO_DISPLAY;
     }
 
@@ -64,6 +79,30 @@ static EGLDisplay getIndependentDisplay() {
     // Use the first available device
     EGLDisplay display = eglGetPlatformDisplayEXT(EGL_PLATFORM_DEVICE_EXT, devices[0], nullptr);
     return display;
+}
+
+// The display to use when a desktop session is reachable. On an XWayland
+// desktop BOTH WAYLAND_DISPLAY and DISPLAY are set, and Mesa's
+// EGL_DEFAULT_DISPLAY prefers the Wayland platform — whose
+// eglCreateWindowSurface then rejects an X11 XID, which is exactly what SDL
+// window handles are. Bind the X11 platform explicitly (Mesa resolves the
+// connection from $DISPLAY when native_display is null); fall back to the
+// default display where the platform extension is missing (fbdev/Mali has
+// no DISPLAY at all and never reaches this).
+static EGLDisplay getDesktopDisplay() {
+    const char* x11Disp = getenv("DISPLAY");
+    if (!x11Disp || !x11Disp[0]) return EGL_NO_DISPLAY;
+    const char* clientExts = eglQueryString(EGL_NO_DISPLAY, EGL_EXTENSIONS);
+    bool hasX11 = clientExts &&
+        (strstr(clientExts, "EGL_KHR_platform_x11") ||
+         strstr(clientExts, "EGL_EXT_platform_x11"));
+    auto eglGetPlatformDisplayEXT = (PFNEGLGETPLATFORMDISPLAYEXTPROC)
+        eglGetProcAddress("eglGetPlatformDisplayEXT");
+    if (hasX11 && eglGetPlatformDisplayEXT) {
+        EGLDisplay d = eglGetPlatformDisplayEXT(EGL_PLATFORM_X11_KHR, nullptr, nullptr);
+        if (d != EGL_NO_DISPLAY) return d;
+    }
+    return EGL_NO_DISPLAY;
 }
 
 #ifdef __APPLE__
@@ -124,11 +163,19 @@ bool gles_context_create(GLESContext* ctx, int width, int height, bool windowSur
 #endif
     if (!displayInitialized) {
         if (windowSurface) {
-            // Window surface mode: use default display (fbdev on Mali)
-            ctx->display = eglGetDisplay(EGL_DEFAULT_DISPLAY);
+            // Window surface mode: explicit X11 platform on desktops,
+            // default display elsewhere (fbdev on Mali).
+            ctx->display = getDesktopDisplay();
+            if (ctx->display == EGL_NO_DISPLAY) {
+                ctx->display = eglGetDisplay(EGL_DEFAULT_DISPLAY);
+            }
         } else {
-            // Try device-based display first (independent from SDL/X11/Wayland)
+            // Try device-based display first (independent from SDL/X11/Wayland;
+            // skipped on desktops so attach_window stays possible)
             ctx->display = getIndependentDisplay();
+            if (ctx->display == EGL_NO_DISPLAY) {
+                ctx->display = getDesktopDisplay();
+            }
             if (ctx->display == EGL_NO_DISPLAY) {
                 // Fallback to default display
                 ctx->display = eglGetDisplay(EGL_DEFAULT_DISPLAY);
