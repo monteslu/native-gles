@@ -1,5 +1,5 @@
 {
-  "version": "0.5.0",
+  "version": "0.6.0",
   "name": "native-gles",
   "description": "OpenGL ES 3.0 bindings for Node.js via EGL — native on Linux/ARM, ANGLE on macOS/Windows",
   "keywords": [
@@ -28,7 +28,7 @@
     "download-release": "cd scripts && node download-release.mjs",
     "download-angle": "cd scripts && node download-angle.mjs",
     "upload-release": "cd scripts && node upload-release.mjs",
-    "test": "node test/test_context.js && node test/test_triangle.js && node test/test_shader.js",
+    "test": "node test/test_context.js && node test/test_triangle.js && node test/test_shader.js && node test/test_window_attach.js",
     "clean": "cd scripts && node clean.mjs"
   },
   "dependencies": {

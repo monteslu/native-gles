@@ -33,17 +33,7 @@ Napi::Value _getIntegerv(const Napi::CallbackInfo& info) {
     GLenum pname = info[0].As<Napi::Number>().Uint32Value();
     if (info.Length() >= 2 && info[1].IsTypedArray()) {
         auto arr = info[1].As<Napi::Int32Array>();
-        // SAFETY: glGetIntegerv writes a pname-dependent COUNT of ints, and some pnames
-        // (GL_COMPRESSED_TEXTURE_FORMATS, GL_PROGRAM_BINARY_FORMATS, etc.) write dozens —
-        // more than the caller's array. Writing straight to arr.Data() then overflows the JS
-        // buffer (real heap-buffer-overflow, found via ASAN: a 204-byte write into a small array).
-        // Query into a generous local buffer and copy only what fits.
-        GLint tmp[256];
-        for (int i = 0; i < 256; i++) tmp[i] = 0;
-        glGetIntegerv(pname, tmp);
-        size_t n = arr.ElementLength();
-        if (n > 256) n = 256;
-        for (size_t i = 0; i < n; i++) arr.Data()[i] = tmp[i];
+        glGetIntegerv(pname, arr.Data());
         return info.Env().Undefined();
     }
     GLint value = 0;
@@ -751,10 +741,9 @@ Napi::Value _getBooleanv(const Napi::CallbackInfo& info) {
     GLenum pname = info[0].As<Napi::Number>().Uint32Value();
     if (info.Length() >= 2 && info[1].IsTypedArray()) {
         auto arr = info[1].As<Napi::Uint8Array>();
-        GLboolean tmp[256]; for (int i=0;i<256;i++) tmp[i]=GL_FALSE;
-        glGetBooleanv(pname, tmp);
-        size_t n = arr.ElementLength(); if (n > 256) n = 256;
-        for (size_t i=0;i<n;i++) arr.Data()[i] = tmp[i];
+        // Write directly to the typed array — GL writes GLboolean (1 byte each)
+        // For multi-value queries (e.g. GL_COLOR_WRITEMASK returns 4 booleans)
+        glGetBooleanv(pname, reinterpret_cast<GLboolean*>(arr.Data()));
         return info.Env().Undefined();
     }
     GLboolean value = GL_FALSE;
@@ -766,10 +755,7 @@ Napi::Value _getFloatv(const Napi::CallbackInfo& info) {
     GLenum pname = info[0].As<Napi::Number>().Uint32Value();
     if (info.Length() >= 2 && info[1].IsTypedArray()) {
         auto arr = info[1].As<Napi::Float32Array>();
-        GLfloat tmp[256]; for (int i=0;i<256;i++) tmp[i]=0.0f;
-        glGetFloatv(pname, tmp);
-        size_t n = arr.ElementLength(); if (n > 256) n = 256;
-        for (size_t i=0;i<n;i++) arr.Data()[i] = tmp[i];
+        glGetFloatv(pname, arr.Data());
         return info.Env().Undefined();
     }
     GLfloat value = 0.0f;
@@ -853,10 +839,6 @@ Napi::Value _clientWaitSync(const Napi::CallbackInfo& info) {
     GLbitfield flags = info[1].As<Napi::Number>().Uint32Value();
     // timeout comes as two 32-bit halves from WASM, but from JS we get a single number
     GLuint64 timeout = static_cast<GLuint64>(info[2].As<Napi::Number>().Int64Value());
-    // Cap the blocking time: under single-threaded inline GL (e.g. emscripten libretro hosts), a
-    // long fence wait can deadlock the one thread that would signal it. 1ms keeps the host event
-    // loop responsive; callers treat GL_TIMEOUT_EXPIRED as "retry next tick".
-    if (timeout > 1000000ULL) timeout = 1000000ULL;  // 1ms in ns
     GLenum result = glClientWaitSync(sync, flags, timeout);
     return Napi::Number::New(info.Env(), result);
 }
