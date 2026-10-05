@@ -54,7 +54,7 @@ before rendering whenever more than one context exists.
 
 | Function | Description |
 |----------|-------------|
-| `createContext(width, height, opts?)` | Create an EGL context (pbuffer by default). Returns the context **handle** (int > 0), or `0` on failure — truthy/falsy like the old boolean. `opts`: `{ windowSurface, nativeWindow }`. |
+| `createContext(width, height, opts?)` | Create an EGL context (pbuffer by default). Returns the context **handle** (int > 0), or `0` on failure — truthy/falsy like the old boolean. `opts`: `{ windowSurface, nativeWindow, samples }`. `samples: N` asks for an N-sample multisampled surface (WebGL's `antialias: true`); a display without one gets the plain surface, so read `GL_SAMPLES` to see which you got. |
 | `destroyContext(id?)` | Destroy a context and free its resources. The shared `EGLDisplay` is refcounted, so destroying one context never tears down the others. |
 | `resizeContext(width, height, id?)` | Resize the pbuffer surface. No-op (returns `true`) while a window surface is attached — window surfaces track their window. |
 | `makeCurrent(id?)` | Make a context current. Required before rendering when the process holds more than one context. |
