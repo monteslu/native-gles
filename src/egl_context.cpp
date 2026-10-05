@@ -138,7 +138,7 @@ struct fbdev_window {
     unsigned short height;
 };
 
-bool gles_context_create(GLESContext* ctx, int width, int height, bool windowSurface, void* nativeWindow) {
+bool gles_context_create(GLESContext* ctx, int width, int height, bool windowSurface, void* nativeWindow, int samples) {
     ctx->valid = false;
     ctx->width = width;
     ctx->height = height;
@@ -217,17 +217,27 @@ bool gles_context_create(GLESContext* ctx, int width, int height, bool windowSur
         EGL_ALPHA_SIZE, 8,
         EGL_DEPTH_SIZE, 24,
         EGL_STENCIL_SIZE, 8,
+        EGL_SAMPLE_BUFFERS, samples > 0 ? 1 : 0,
+        EGL_SAMPLES, samples > 0 ? samples : 0,
         EGL_NONE
     };
 
-    EGLint numConfigs;
-    if (!eglChooseConfig(ctx->display, configAttribs, &ctx->config, 1, &numConfigs) || numConfigs == 0) {
-        configAttribs[1] = windowSurface ? EGL_WINDOW_BIT : EGL_PBUFFER_BIT;
-        if (!eglChooseConfig(ctx->display, configAttribs, &ctx->config, 1, &numConfigs) || numConfigs == 0) {
-            fprintf(stderr, "native-gles: eglChooseConfig failed\n");
-            releaseDisplay(ctx->display);
-            return false;
-        }
+    // Most-wanted first: both surface types, then the one required; and if
+    // a multisampled config was asked for and none exists, the same without.
+    EGLint numConfigs = 0;
+    bool found = false;
+    for (int attempt = 0; attempt < 4 && !found; attempt++) {
+        bool dual = attempt % 2 == 0, msaa = attempt < 2 && samples > 0;
+        if (attempt >= 2 && samples <= 0) break;
+        configAttribs[1] = dual ? (EGL_WINDOW_BIT | EGL_PBUFFER_BIT) : (windowSurface ? EGL_WINDOW_BIT : EGL_PBUFFER_BIT);
+        configAttribs[17] = msaa ? 1 : 0;
+        configAttribs[19] = msaa ? samples : 0;
+        found = eglChooseConfig(ctx->display, configAttribs, &ctx->config, 1, &numConfigs) && numConfigs > 0;
+    }
+    if (!found) {
+        fprintf(stderr, "native-gles: eglChooseConfig failed\n");
+        releaseDisplay(ctx->display);
+        return false;
     }
 
     if (windowSurface) {

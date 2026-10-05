@@ -26,7 +26,11 @@ struct GLESContext {
     bool macSyncApplied;
 };
 
-bool gles_context_create(GLESContext* ctx, int width, int height, bool windowSurface = false, void* nativeWindow = nullptr);
+// samples > 0 asks for a multisampled surface (WebGL's antialias: true); a
+// display without such a config gets the plain one instead (the caller can
+// read GL_SAMPLES to see which it got).
+bool gles_context_create(GLESContext* ctx, int width, int height, bool windowSurface = false, void* nativeWindow = nullptr,
+                         int samples = 0);
 void gles_context_destroy(GLESContext* ctx);
 bool gles_context_resize(GLESContext* ctx, int width, int height);
 bool gles_context_make_current(GLESContext* ctx);

@@ -42,8 +42,12 @@ static Napi::Value createContext(const Napi::CallbackInfo& info) {
     int height = info[1].As<Napi::Number>().Int32Value();
     bool windowSurface = false;
     void* nativeWindow = nullptr;
+    int samples = 0;
     if (info.Length() > 2 && info[2].IsObject()) {
         auto opts = info[2].As<Napi::Object>();
+        if (opts.Has("samples") && opts.Get("samples").IsNumber()) {
+            samples = opts.Get("samples").As<Napi::Number>().Int32Value();
+        }
         if (opts.Has("windowSurface")) {
             windowSurface = opts.Get("windowSurface").As<Napi::Boolean>().Value();
         }
@@ -56,7 +60,7 @@ static Napi::Value createContext(const Napi::CallbackInfo& info) {
         }
     }
     GLESContext ctx = {};
-    if (!gles_context_create(&ctx, width, height, windowSurface, nativeWindow)) {
+    if (!gles_context_create(&ctx, width, height, windowSurface, nativeWindow, samples)) {
         return Napi::Number::New(info.Env(), 0);
     }
     int32_t id = g_nextId++;
